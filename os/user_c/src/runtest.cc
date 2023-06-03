@@ -5,7 +5,6 @@
 char* argv[16];
 char testsuits_name[][49]={
 	"mount",
-	"umount",
 	"fstat",
 	"getpid",
 	"getppid",
@@ -34,8 +33,9 @@ char testsuits_name[][49]={
 	"uname",
 	"unlink",
 	"mmap",
-	"munmap",
 	"pipe",
+	"munmap",
+	"umount",
 };
 signed main(){
 	// execve("shell",0,0);

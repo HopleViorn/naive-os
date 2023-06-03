@@ -277,6 +277,10 @@ pub fn sys_write(fd: usize, buf: *const u8, len: usize) -> isize {
     // }
 }
 
+pub fn sys_umount() -> isize {
+    0
+}
+
 pub fn sys_mount() -> isize {
     let nuclear = include_bytes!("../../../testbin/text.txt");
     let inode = Arc::new(Mutex::new(RegFileINode::new(

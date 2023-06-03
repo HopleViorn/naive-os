@@ -76,7 +76,7 @@ pub unsafe fn syscall(syscall_id: usize, args: [usize; 6]) -> isize {
 		SYSCALL_EXECVE => sys_exec(args[0] as *mut u8,args[1] as usize),
 		SYSCALL_WAITPID => sys_waitpid(args[0] as isize,if(args[1]==0){0}else{translate(args[1])} as *mut isize,args[2]),
 		SYSCALL_TIMES=> sys_times(translate(args[0])),
-		SYSCALL_UMOUNT => 0,
+		SYSCALL_UMOUNT => sys_umount(),
 		SYSCALL_MOUNT => sys_mount(),
 		SYSCALL_BRK => sys_brk(args[0]),
 		SYSCALL_OPENAT => sys_openat(args[0] as isize, &translate_str(get_token(), args[1] as *mut u8), args[2] as isize),

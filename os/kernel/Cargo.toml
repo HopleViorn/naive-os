@@ -17,6 +17,8 @@ libc = { version = "0.2", optional = true }
 hashbrown = "0.13.2"
 async-task =  { path = "dependencies/async-task", default-features = false }
 virtio-drivers = { path = "dependencies/virtio-drivers" }
+block_device ="0.1"
+fat32 = { path = "dependencies/fat32" }
 # virtio-drivers = { git = "https://github.com/rcore-os/virtio-drivers", rev = "4993381" }
 embedded-sdmmc = "0.5.0"
 

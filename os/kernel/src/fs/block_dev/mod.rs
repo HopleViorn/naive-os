@@ -1,29 +1,56 @@
-use alloc::sync::Arc;
+use core::ops::DerefMut;
+
+use alloc::{sync::Arc, string::{String, ToString}};
+use fat32::{volume::Volume, dir::Dir};
+use lazy_static::__Deref;
 use spin::Mutex;
 
-mod virtio_block;
 mod block_device;
-use crate::fs::block_dev::virtio_block::VirtIOBlock;
+mod virtio_block;
+use crate::fs::block_dev::virtio_block::{VirtIOBlock, Nulcear};
 
-use self::block_device::BlockDevice;
+use ::block_device::BlockDevice;
 
 lazy_static::lazy_static! {
-    pub static ref BLOCK_DEVICE: Arc<dyn BlockDevice> = Arc::new(VirtIOBlock::new());
+    pub static ref BLOCK_DEVICE: Arc<VirtIOBlock>= Arc::new(VirtIOBlock::new());
 }
 
+lazy_static::lazy_static!{
+	pub static ref buf:Arc<Mutex<[u8;512<<8]>>=Arc::new(Mutex::new([0;512<<8]));
+}
 #[allow(unused)]
 pub fn block_device_test() {
-    let block_device = BLOCK_DEVICE.clone();
+	let x=Volume::new(Nulcear {});
+	let root=x.root_dir();
 
-    let mut write_buffer = [0u8; 512];
-    let mut read_buffer = [0u8; 512];
-    for i in 0..512 {
-        for byte in write_buffer.iter_mut() {
-            *byte = i as u8;
-        }
-        block_device.write_block(i as usize, &write_buffer);
-        block_device.read_block(i as usize, &mut read_buffer);
-        assert_eq!(write_buffer, read_buffer);
-    }
+	for item in root.iter(){
+		if let Some(short)=item.sfn{
+			let (name,len)=short.get_full_name_bytes();
+			let name = core::str::from_utf8(&name).unwrap().to_string();
+			println!("[name] {}",&name);
+			let file=root.open_file(&name[..len]).unwrap();
+			
+			let mut xxx=buf.lock();
+			let mut xxx=xxx.deref_mut();
+			file.read(xxx).unwrap();
+			let mut nxx=0;
+			let mut tt=0;
+			for c in xxx{
+				print!("{:02x}",c);
+				nxx+=1;
+				if nxx==16{
+					nxx=0;
+					println!("");
+				}
+				tt+=1;
+				if(tt==16*16){
+					break;
+				}
+			}			
+		}
+		else if let Some(long)=item.lfn{
+		}
+
+	}
     println!("block device test passed!");
 }

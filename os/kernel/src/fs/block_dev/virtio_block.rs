@@ -1,6 +1,6 @@
-use core::{arch::asm, panic};
+use core::{arch::asm, panic, slice::Chunks};
 
-use alloc::vec::Vec;
+use alloc::{vec::Vec, format};
 use lazy_static::lazy_static;
 use spin::Mutex;
 use virtio_drivers::{VirtIOBlk, VirtIOHeader};
@@ -8,8 +8,7 @@ use virtio_drivers::{VirtIOBlk, VirtIOHeader};
 use crate::{ mm::{PhysAddr, frame_alloc, VirtAddr, PhysPageNum, FrameTracker, StepByOne, KERNEL_SPACE, page_table::PageTable}};
 use crate::mm::frame_allocator::frame_dealloc;
 
-use super::block_device::BlockDevice;
-
+use super::{block_device::BlockDevice, BLOCK_DEVICE};
 
 
 #[allow(unused)]
@@ -21,12 +20,13 @@ lazy_static! {
     static ref QUEUE_FRAMES: Mutex<Vec<FrameTracker>> = Mutex::new(Vec::new());
 }
 
+
 impl BlockDevice for VirtIOBlock {
     fn read_block(&self, block_id: usize, buf: &mut [u8]) {
         self.0
             .lock()
             .read_block(block_id, buf)
-            .expect("Error when reading VirtIOBlk");
+            .expect(&format!("Error when reading VirtIOBlk,block_id:{:#x}", block_id));
     }
     fn write_block(&self, block_id: usize, buf: &[u8]) {
         self.0
@@ -35,6 +35,38 @@ impl BlockDevice for VirtIOBlock {
             .expect("Error when writing VirtIOBlk");
     }
 }
+
+#[derive(Copy,Clone)]
+pub struct Nulcear;
+
+impl ::block_device::BlockDevice for Nulcear{
+	type Error = usize;
+	fn read(
+        &self,
+        buf: &mut [u8],
+        address: usize,
+        number_of_blocks: usize,
+    ) -> Result<(), Self::Error>{
+		let mut i=0;
+		for chunk in buf.chunks_mut(512){
+			let mut tmp=[0;512];
+			BLOCK_DEVICE.read_block(address/512+i,&mut tmp);
+			chunk.copy_from_slice(&tmp[..chunk.len()]);
+			i+=1;
+		}
+		Ok(())
+	}   
+	fn write(&self, buf: &[u8], address: usize, number_of_blocks: usize)
+        -> Result<(), Self::Error>{
+			let mut i=0;
+		for chunk in buf.chunks(512){
+			BLOCK_DEVICE.write_block(address/512+i,chunk);
+			i+=1;
+		}
+			Ok(())
+		}
+}
+
 
 impl VirtIOBlock {
     #[allow(unused)]

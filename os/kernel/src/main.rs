@@ -172,8 +172,8 @@ pub fn rust_main() -> ! {
 		mm::init();
     // unsafe {sie::set_stimer();}
     // set_next_trigger();
-	block_device_test();
-	panic!("success.");
+	// block_device_test();
+	// panic!("success.");
     unsafe {
         load_user_file();
     }

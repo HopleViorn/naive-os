@@ -37,7 +37,7 @@ use crate::fs::block_dev::block_device_test;
 use crate::mm::memory_set::{MapArea, MapPermission, MapType};
 use crate::mm::VirtAddr;
 use crate::task::{TASK_QUEUE, Thread, PID_ALLOCATOR, Process};
-use crate::trap::user_loop;
+use crate::trap::{user_loop, set_kernel_trap};
 use crate::{
     config::{KERNEL_STACK_SIZE, TRAMPOLINE, USER_STACK_SIZE},
     console::print,

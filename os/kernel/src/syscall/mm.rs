@@ -14,6 +14,7 @@ use crate::{
 
 impl Thread{
 	pub fn sys_brk(&self, _brk: usize) -> isize {
+		println!("brk:{:#x}",_brk);
 		let mut pcb=self.proc.inner.lock();
 		let end_: usize = pcb.heap_pos.into();
 		// let old_end = usize::from(VirtAddr::from(end_)) + PAGE_SIZE - 1;

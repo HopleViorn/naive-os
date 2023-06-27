@@ -71,7 +71,7 @@ pub unsafe fn exec_from_elf(&self ,elf_file: &ElfFile, argv: usize) -> isize {
 		user_stack_kernel -= 8;
         user_stack -= 8;
         *(user_stack_kernel as *mut usize) = pos[argc - i -1 ];
-		println!(":::{:#x}",pos[argc-i-1]);
+		// println!(":::{:#x}",pos[argc-i-1]);
     }
 	argc-=2;
 	

@@ -58,6 +58,6 @@ debug: all
 
 gdb:
 	riscv64-unknown-elf-gdb \
-    -ex 'file $(TARGET_DIR)/os' \
+    -ex 'file /home/max/os/naive-os/os/kernel/target/riscv64gc-unknown-none-elf/release/os' \
     -ex 'set arch riscv:rv64' \
     -ex 'target remote localhost:12345'

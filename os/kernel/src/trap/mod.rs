@@ -1,6 +1,8 @@
 mod context;
 
 use crate::config::TRAMPOLINE;
+use crate::mm::VirtAddr;
+use crate::mm::page_table::PageTable;
 use crate::task::{ProcessContext, PCB};
 use crate::task::Thread;
 use crate::{
@@ -26,13 +28,27 @@ pub fn init() {
         stvec::write(TRAMPOLINE, TrapMode::Direct);
     }
 }
+
 #[no_mangle]
-pub fn trap_from_kernel() {
+pub fn trap_from_kernel() ->! {
     println!("Kernel trap");
     // let scause = scause::read();
     // let stval = stval::read();
     // println!("stval= {:#x}",stval);
     panic!("kernel trap");
+}
+
+#[no_mangle]
+pub fn set_kernel_trap() {
+	unsafe{
+		stvec::write(trap_from_kernel as usize, TrapMode::Direct);
+	}
+}
+#[no_mangle]
+pub fn set_user_trap() {
+	unsafe{
+		stvec::write(TRAMPOLINE as usize, TrapMode::Direct);
+	}
 }
 
 #[no_mangle]
@@ -46,12 +62,13 @@ pub async unsafe fn user_loop(thread: Arc<Thread>){
 		let user_satp={
 			let mut pcb=thread.proc.inner.lock();
 			// println!("spec={:#x}",(*(pcb.trapframe_ppn.get_mut() as *mut TrapFrame)).sepc);
-			stvec::write(TRAMPOLINE as usize, TrapMode::Direct);
+			set_user_trap();
 			pcb.ktime +=get_time_ms() - pcb.otime;
 			pcb.otime = get_time_ms();
 			
 			let trapframe_ptr = TRAPFRAME;
 			pcb.memory_set.token()
+			
 		};
 
 	extern "C" {
@@ -67,8 +84,11 @@ pub async unsafe fn user_loop(thread: Arc<Thread>){
 		in("a0") &mut cx,      // a0 = virt addr of Trap Context
 		in("a1") user_satp,        // a1 = phy addr of usr page table
 	);
+
+
+	set_kernel_trap();
 	let mut pcb=thread.proc.inner.lock();
-	stvec::write(trap_from_kernel as usize, TrapMode::Direct);
+	
 	let scause = scause::read(); // get trap cause
 	let stval = stval::read(); // get extra value
 	//    println!("USER TRAP: stval={:#x}",stval);

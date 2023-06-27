@@ -9,6 +9,7 @@ use crate::sync::UPSafeCell;
 use alloc::collections::BTreeMap;
 use alloc::sync::Arc;
 use alloc::vec::Vec;
+use xmas_elf::program::SegmentData;
 use core::arch::asm;
 use lazy_static::*;
 use riscv::register::satp;
@@ -173,7 +174,7 @@ impl MemorySet {
                 let mut map_perm = MapPermission::U;
                 let ph_flags = ph.flags();
                 if ph_flags.is_read() {
-                    map_perm |= MapPermission::R;
+					map_perm |= MapPermission::R;
                 }
                 if ph_flags.is_write() {
                     map_perm |= MapPermission::W;
@@ -181,13 +182,15 @@ impl MemorySet {
                 if ph_flags.is_execute() {
                     map_perm |= MapPermission::X;
                 }
+				// println!("[{:#x},{:#x}]",start_va.0,end_va.0);
                 let map_area = MapArea::new(start_va, end_va, MapType::Framed, map_perm);
                 max_end_vpn = map_area.vpn_range.get_end();
-				println!("loadding:{:#x} to {:#x}.",start_va.0,end_va.0);
-                memory_set.push(
-                    map_area,
-                    Some(&elf.input[ph.offset() as usize..(ph.offset() + ph.file_size()) as usize]),
-                );
+				let align=ph.offset();
+				let align=align-align%4096;
+				memory_set.push(
+					map_area,
+					Some(&elf.input[align as usize..(ph.offset() + ph.file_size()) as usize]),
+				);
             }
         }
         // map user stack with U flags
@@ -227,6 +230,8 @@ impl MemorySet {
             ),
             None,
         );
+
+		let trapframe_ptr = TRAPFRAME;
         (
             memory_set,
             user_stack_top,
@@ -234,7 +239,7 @@ impl MemorySet {
         )
     }
     pub fn activate(&self) {
-        let satp = self.page_table.token();
+        let satp: usize = self.page_table.token();
         unsafe {
             satp::write(satp);
             asm!("sfence.vma");

@@ -33,6 +33,9 @@ const SYSCALL_SET_ROBUST_LIST: usize = 99;
 const SYSCALL_GET_ROBUST_LIST: usize = 100;
 const SYSCALL_NANOSLEEP: usize = 101;
 const SYSCALL_SCHED_YIELD: usize = 124;
+const SYSCALL_TGKILL: usize = 131;
+const SYSCALL_SIGACTION: usize = 134;
+const SYSCALL_SIGPROCMASK: usize = 135;
 const SYSCALL_TIMES: usize = 153;
 const SYSCALL_UNAME: usize = 160;
 const SYSCALL_GETTIMEOFDAY: usize = 169;
@@ -42,6 +45,7 @@ const SYSCALL_GETUID: usize = 174;
 const SYSCALL_GETEUID: usize = 175;
 const SYSCALL_GETGID: usize = 176;
 const SYSCALL_GETEGID: usize = 177;
+const SYSCALL_GETTID: usize = 178;
 const SYSCALL_BRK: usize = 214;
 const SYSCALL_MUNMAP: usize = 215;
 const SYSCALL_CLONE: usize = 220;
@@ -159,8 +163,12 @@ impl Thread{
 			SYSCALL_GETUID => 0,
 			SYSCALL_GETGID => 0,
 			SYSCALL_GETEGID => 0,
-			SYSCALL_SET_TID_ADDRESS =>0, //TODO
 			SYSCALL_SET_ROBUST_LIST => 0,
+			SYSCALL_SET_TID_ADDRESS => 0, //TODO
+			SYSCALL_SIGPROCMASK=>0,//TODO
+			SYSCALL_GETTID =>0,//TODO
+			SYSCALL_TGKILL=>0,//TODO
+			SYSCALL_SIGACTION=>0,//TODO
 			_ => panic!("Unsupported syscall_id: {}", syscall_id),
 		};
 		result

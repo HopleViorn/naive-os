@@ -60,29 +60,39 @@ impl Thread{
 		let mut pcb = self.proc.inner.lock();
 		let mut pcb=pcb.deref_mut();
 		let startva = if start == 0 {
-			pcb.heap_pos
+			pcb.heap_pos.ceil().0
 		} else {
-			start.into()
+			start
+		};
+		pcb.heap_pos=(startva+len).into();
+		if fd==usize::MAX {
+			pcb.memory_set.push(
+				MapArea::new(
+					startva.into(),
+					(startva + len).into(),
+					MapType::Framed,
+					MapPermission::R | MapPermission::W | MapPermission::U,
+				),None
+			);
+		}else{
+			pcb.memory_set.push(
+				MapArea::new(
+					startva.into(),
+					(startva + len).into(),
+					MapType::Framed,
+					MapPermission::R | MapPermission::W | MapPermission::U,
+				),
+				Some(
+					pcb.fd_manager.fd_array[fd]
+						.open_file
+						.lock()
+						.inode
+						.lock()
+						.file_data()
+						.as_slice()
+				)
+			);
 		}
-		.0;
-
-		pcb.memory_set.push(
-			MapArea::new(
-				startva.into(),
-				(startva + len).into(),
-				MapType::Framed,
-				MapPermission::R | MapPermission::W | MapPermission::U,
-			),
-			Some(
-				pcb.fd_manager.fd_array[fd]
-					.open_file
-					.lock()
-					.inode
-					.lock()
-					.file_data()
-					.as_slice(),
-			),
-		);
 		return startva as isize;
 	}
 

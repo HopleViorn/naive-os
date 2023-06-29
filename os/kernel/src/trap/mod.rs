@@ -163,7 +163,7 @@ pub async unsafe fn user_loop(thread: Arc<Thread>){
 				.trapframe_ppn
 				.get_mut();
 			panic!(
-				"Unsupported trap {:?}, stval = {:#x},spec = {:#x},pid = {}",
+				"Unsupported trap {:?}, stval = {:#x},sepc = {:#x},pid = {}",
 				scause.cause(),
 				stval,
 				cx.sepc,

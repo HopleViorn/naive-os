@@ -1,7 +1,8 @@
-use core::ops::DerefMut;
+use core::{ops::DerefMut, panic};
 
 use alloc::task;
 use lazy_static::__Deref;
+use riscv::register::mstatus;
 
 use crate::{
     config::{PAGE_SIZE, PAGE_SIZE_BITS},
@@ -17,8 +18,7 @@ impl Thread{
 		println!("brk:{:#x}",_brk);
 		let mut pcb=self.proc.inner.lock();
 		let end_: usize = pcb.heap_pos.into();
-		// let old_end = usize::from(VirtAddr::from(end_)) + PAGE_SIZE - 1;
-		// //let new_end = ((_brk - 1 + PAGE_SIZE) / PAGE_SIZE) << PAGE_SIZE_BITS;
+		println!("heap:{:#x}",end_);
 
 		if (_brk == 0) {
 			return end_ as isize;
@@ -27,32 +27,17 @@ impl Thread{
 		if (end_ == _brk) {
 			0
 		} else if (end_ < _brk) {
-			let mset = &mut pcb.memory_set;
-			if (_brk < usize::from(VirtAddr::from(mset.get_areas_end())) + PAGE_SIZE) {
-				pcb.heap_pos.0 = _brk;
-				return 0;
-			} else {
-				let flag = mset.append_to(
-					VirtAddr::from(
-						mset.areas
-							.get(mset.areas.len() - 2)
-							.unwrap()
-							.vpn_range
-							.get_start(),
-					),
-					VirtAddr::from(_brk),
-				);
-				// for v in mset.areas.iter(){
-				//     println!("{} {}", usize::from(v.vpn_range.get_start()), usize::from(v.vpn_range.get_end()));
-				// }
-				if flag {
-					pcb.heap_pos.0 = _brk;
-					return 0;
-				} else {
-					return -1;
-				}
-			}
+			pcb.memory_set.push(
+				MapArea::new(
+					end_.into(),
+					_brk.into(),
+					MapType::Framed,
+					MapPermission::R | MapPermission::W | MapPermission::U,
+				),None);
+			pcb.heap_pos.0 = _brk;
+			return _brk as isize;
 		} else {
+			panic!("shorten.");
 			// need to change
 			let mset = &mut pcb.memory_set;
 			let flag = mset.shrink_to(

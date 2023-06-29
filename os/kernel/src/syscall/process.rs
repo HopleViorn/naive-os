@@ -72,7 +72,7 @@ impl Thread{
 		new_pcb.fd_manager=pcb.fd_manager.clone();
 		new_pcb.memory_set=MemorySet::from_existed_user(&pcb.memory_set);
 		new_pcb.heap_pos = VirtAddr::from(pcb.memory_set.get_areas_end());
-		new_pcb.heap_pos.0 += PAGE_SIZE;
+		// new_pcb.heap_pos.0 += PAGE_SIZE;
 		new_pcb.trapframe_ppn = new_pcb
 			.memory_set
 			.translate(VirtAddr::from(TRAPFRAME).into())

@@ -24,6 +24,8 @@ const SYSCALL_PIPE2: usize = 59;
 const SYSCALL_GETDENTS64: usize = 61;
 const SYSCALL_READ: usize = 63;
 const SYSCALL_WRITE: usize = 64;
+const SYSCALL_READV: usize = 65;
+const SYSCALL_WRITEV: usize = 66;
 const SYSCALL_FSTAT: usize = 80;
 const SYSCALL_EXIT: usize = 93;
 const SYSCALL_SET_TID_ADDRESS: usize = 96;
@@ -85,8 +87,10 @@ impl Thread{
 			.get_mut() as *mut u8 as usize
 	}
 	pub async unsafe fn syscall(& self, syscall_id: usize, args: [usize; 6]) -> isize {
+		println!("[syscall] id={}",syscall_id);
 		let result = match syscall_id {
 			SYSCALL_WRITE => self.sys_write(args[0], args[1] as *const u8, args[2]),
+			SYSCALL_WRITEV => self.sys_writev(args[0], self.translate(args[1]) as *const usize, args[2]),
 			SYSCALL_EXIT =>  self.sys_exit(args[0] as i32),
 			SYSCALL_NANOSLEEP => Thread::sys_nanosleep(
 				self.translate(args[0]),

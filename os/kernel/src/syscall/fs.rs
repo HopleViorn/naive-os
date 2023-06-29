@@ -199,6 +199,18 @@ impl Thread{
 		return sum as isize;
 	}
 
+	pub fn sys_writev(&self, fd: usize, iov: *const usize, len: usize) -> isize {
+		let mut sum=0;
+		for i in 0..len{
+			unsafe{
+				let buf=*iov.add(i*2) as *const u8;
+				let size=*iov.add(i*2+1);
+				self.sys_write(fd, buf, size);
+			}
+		}
+		0
+	}
+
 	pub fn sys_umount(&self) -> isize {
 		0
 	}

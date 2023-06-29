@@ -15,10 +15,8 @@ use crate::{
 
 impl Thread{
 	pub fn sys_brk(&self, _brk: usize) -> isize {
-		println!("brk:{:#x}",_brk);
 		let mut pcb=self.proc.inner.lock();
 		let end_: usize = pcb.heap_pos.into();
-		println!("heap:{:#x}",end_);
 
 		if (_brk == 0) {
 			return end_ as isize;
@@ -37,7 +35,7 @@ impl Thread{
 			pcb.heap_pos.0 = _brk;
 			return _brk as isize;
 		} else {
-			panic!("shorten.");
+			panic!("shrink.");
 			// need to change
 			let mset = &mut pcb.memory_set;
 			let flag = mset.shrink_to(

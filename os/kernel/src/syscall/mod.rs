@@ -26,6 +26,9 @@ const SYSCALL_READ: usize = 63;
 const SYSCALL_WRITE: usize = 64;
 const SYSCALL_FSTAT: usize = 80;
 const SYSCALL_EXIT: usize = 93;
+const SYSCALL_SET_TID_ADDRESS: usize = 96;
+const SYSCALL_SET_ROBUST_LIST: usize = 99;
+const SYSCALL_GET_ROBUST_LIST: usize = 100;
 const SYSCALL_NANOSLEEP: usize = 101;
 const SYSCALL_SCHED_YIELD: usize = 124;
 const SYSCALL_TIMES: usize = 153;
@@ -82,7 +85,6 @@ impl Thread{
 			.get_mut() as *mut u8 as usize
 	}
 	pub async unsafe fn syscall(& self, syscall_id: usize, args: [usize; 6]) -> isize {
-		// println!("[syscall] id={}",syscall_id);
 		let result = match syscall_id {
 			SYSCALL_WRITE => self.sys_write(args[0], args[1] as *const u8, args[2]),
 			SYSCALL_EXIT =>  self.sys_exit(args[0] as i32),
@@ -153,6 +155,8 @@ impl Thread{
 			SYSCALL_GETUID => 0,
 			SYSCALL_GETGID => 0,
 			SYSCALL_GETEGID => 0,
+			SYSCALL_SET_TID_ADDRESS =>0, //TODO
+			SYSCALL_SET_ROBUST_LIST => 0,
 			_ => panic!("Unsupported syscall_id: {}", syscall_id),
 		};
 		result

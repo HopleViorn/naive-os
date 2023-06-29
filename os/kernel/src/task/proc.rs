@@ -52,34 +52,44 @@ pub unsafe fn exec_from_elf(&self ,elf_file: &ElfFile, argv: usize) -> isize {
             argc += 1;
         }
     }
-	
+
+	user_stack_kernel -= 8;
+	user_stack -= 8;
+	*(user_stack_kernel as *mut usize)=0x2333;
+	let at_random=user_stack;
 	//env
-	user_stack_kernel -= 8;
-	user_stack -= 8;
-	*(user_stack_kernel as *mut usize)=0;
-	pos.push(user_stack);
-	argc+=1;
-	//augvec
-	user_stack_kernel -= 8;
-	user_stack -= 8;
-	*(user_stack_kernel as *mut usize)=0;
-	pos.push(user_stack);
-	argc+=1;
+	pos.push(0);
 
+	//AT_RANDOM
+	pos.push(25);
+	pos.push(at_random);
 
-    for i in 0..argc {
+	//AT_NULL
+	pos.push(0);
+	pos.push(0);
+	
+	let len=pos.len();
+    for i in 0..len {
 		user_stack_kernel -= 8;
         user_stack -= 8;
-        *(user_stack_kernel as *mut usize) = pos[argc - i -1 ];
-		// println!(":::{:#x}",pos[argc-i-1]);
+        *(user_stack_kernel as *mut usize) = pos[len - i -1 ];
+		// println!("{:#x}:::{:#x}",user_stack,pos[len-i-1]);
     }
-	argc-=2;
+	let argv_begin=user_stack;
+
+	// **argv
+	user_stack_kernel -= 8;
+	user_stack -= 8;
+	*(user_stack_kernel as *mut usize) = argv_begin;
+	// println!("{:#x}",argv_begin);
 	
-    user_stack_kernel -= 8;
-    user_stack -= 8;
-    *(user_stack_kernel as *mut usize) = argc;
-	println!("argc:{}",argc);
-	println!("usert_stack:{:#x}",user_stack);
+	
+	//argc
+	user_stack_kernel -= 8;
+	user_stack -= 8;
+	*(user_stack_kernel as *mut usize) = argc;
+	// println!("argc:{}",argc);
+	// println!("usert_stack:{:#x}",user_stack);
 	
     *(nowproc.trapframe_ppn.get_mut() as *mut TrapFrame) = TrapFrame::app_init_context(
 		entry,

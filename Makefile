@@ -57,6 +57,16 @@ debug: all
 	-kernel kernel-qemu \
 	-gdb tcp::12345 -S
 
+sdebug: all
+	qemu-system-riscv64 \
+    -machine virt \
+    -nographic \
+	-smp 1 \
+	-m 128 \
+    -bios sbi-qemu \
+	-kernel kernel-qemu \
+	-gdb tcp::12345 -S
+
 gdb:
 	riscv64-unknown-elf-gdb \
     -ex 'file /home/max/os/naive-os/os/kernel/target/riscv64gc-unknown-none-elf/release/os' \

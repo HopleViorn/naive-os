@@ -1,7 +1,7 @@
 #include "lib/unistd.h"
 #include "lib/stdio.c"
 signed main(){
-	printf("hello init\n");
+	printf("[init proc] hello!\n");
 	if(fork()==0){
 		// execve("clone", 0, 0);
 		execve("busybox", 0, 0);

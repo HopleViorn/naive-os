@@ -2,7 +2,7 @@ use core::str::from_utf8;
 
 use crate::{
     mm::{page_table::PageTable, VirtAddr},
-    task::{task_list, Thread},
+    task::{Thread},
     timer::{get_time_s, get_time_us, set_next_trigger},
 };
 

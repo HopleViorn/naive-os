@@ -8,7 +8,7 @@ use crate::{
 use alloc::{string::{String, ToString}, collections::{VecDeque, BTreeMap}};
 use async_task::Runnable;
 pub use context::ProcessContext;
-use core::{arch::global_asm, cell::UnsafeCell, ops::DerefMut};
+use core::{arch::global_asm, cell::UnsafeCell, ops::DerefMut, fmt::Result};
 use core::default::Default;
 use hashbrown::HashMap;
 pub mod context;
@@ -24,10 +24,6 @@ use crate::UPSafeCell;
 global_asm!(include_str!("switch.S"));
 extern "C" {
     fn __switch(current: *mut ProcessContext, next: *mut ProcessContext);
-}
-
-lazy_static! {
-    pub static ref task_list: UPSafeCell<Vec<PCB>> = unsafe { UPSafeCell::new(Vec::new()) };
 }
 lazy_static! {
     pub static ref global_dentry_cache: GlobalDentryCache = Default::default();
@@ -52,8 +48,8 @@ impl TaskQueue{
 	pub fn len(&self)->usize{
 		self.qs.lock().len()
 	}
-	pub fn fetch(&self)->Runnable{
-		self.qs.lock().pop_front().unwrap()
+	pub fn fetch(&self)->Option<Runnable>{
+		self.qs.lock().pop_front()
 	}
 }
 

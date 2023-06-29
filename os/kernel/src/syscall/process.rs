@@ -17,7 +17,7 @@ use crate::{
     mm::{page_table::translate_str, translated_byte_buffer, MemorySet, VirtAddr, KERNEL_SPACE, MapPermission},
     sync::UPSafeCell,
     task::{
-        task_list, ProcessState, PCB, Thread, TASK_QUEUE, PID_ALLOCATOR, ProcessContext, Process,
+         ProcessState, PCB, Thread, TASK_QUEUE, PID_ALLOCATOR, ProcessContext, Process,
     }, config::{PAGE_SIZE, TRAPFRAME, TRAMPOLINE, KERNEL_STACK_SIZE}, trap::{TrapFrame, user_loop},
 };
 
@@ -44,8 +44,12 @@ impl Thread{
 		let proc = &mut self.proc.inner.lock();
 		proc.state = ProcessState::ZOMBIE;
 		proc.exit_code = exit_code as isize;
-		let mut x=proc.parent.as_ref().unwrap().inner.lock();
-		x.children.turn_into_zombie(proc.pid);
+		if let Some(nuclear)=proc.parent.as_ref(){
+			let mut x=nuclear.inner.lock();
+			x.children.turn_into_zombie(proc.pid);
+		}else{
+			println!("init exited.");
+		}
 		self.inner.exclusive_access().exit=true;
 		0
 	}
@@ -78,7 +82,7 @@ impl Thread{
 		(*(new_pcb.trapframe_ppn.get_mut() as *mut TrapFrame)).x[10] = 0;
 		(*(new_pcb.trapframe_ppn.get_mut() as *mut TrapFrame)).kernel_sp =
 			TRAMPOLINE - KERNEL_STACK_SIZE * new_pid;
-		KERNEL_SPACE.exclusive_access().insert_framed_area(
+		KERNEL_SPACE.lock().insert_framed_area(
 			(TRAMPOLINE - KERNEL_STACK_SIZE * (new_pid + 1)).into(),
 			(TRAMPOLINE - KERNEL_STACK_SIZE * new_pid).into(),
 			MapPermission::R | MapPermission::W,
@@ -159,24 +163,6 @@ impl Thread{
 				let mut children= &mut pcb.children.zombie;
 				children.remove_entry(&pid);
 				return pid as isize;
-				// let mut p = 0xffffffff;
-				// for x in task_list.exclusive_access() {
-				// 	if (x.state == ProcessState::ZOMBIE && x.parent == nowpid) {
-				// 		p = x.pid;
-				// 		break;
-				// 	}
-				// }
-				// if (p == 0xffffffff) {
-				// 	Thread::async_yield().await;
-				// } else {
-				// 	if (status.as_usize() as usize != 0) {
-				// 		let status=status.raw_ptr_mut();
-				// 		*status = (task_list.exclusive_access()[p].exit_code << 8) | (0);
-				// 	}
-				// 	task_list.exclusive_access()[p].state = ProcessState::KILLED;
-				// 	task_list.exclusive_access()[p].memory_set = MemorySet::new_bare();
-				// 	return p as isize;
-				// }
 			}
 		} else {
 			let mut children= &mut pcb.children.zombie;
@@ -189,22 +175,6 @@ impl Thread{
 			}else{
 				return -1;
 			}
-			// let x = &mut task_list.exclusive_access()[pid as usize];
-			// if (x.parent != nowpid || (x.state == ProcessState::KILLED)) {
-			// 	return -1;
-			// } else {
-			// 	while (x.state != ProcessState::ZOMBIE) {
-			// 		Thread::async_yield().await;
-			// 		// sys_yield();
-			// 	}
-			// 	if (status.as_usize() as usize != 0) {
-			// 		let status=status.raw_ptr_mut();
-			// 		*status = (x.exit_code << 8) | (0);
-			// 	}
-			// 	x.state = ProcessState::KILLED;
-			// 	x.memory_set = MemorySet::new_bare();
-			// 	return pid as isize;
-			// }
 		}
 		0
 	}

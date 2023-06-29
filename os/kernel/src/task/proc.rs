@@ -11,7 +11,7 @@ use crate::{
         translated_byte_buffer, MemorySet, VirtAddr,
     }, trap::TrapFrame,
 };
-use super::{task_list, ProcessContext, ProcessState, __switch, PCB, TASK_QUEUE, Thread};
+use super::{ProcessContext, ProcessState, __switch, PCB, TASK_QUEUE, Thread};
 
 impl Thread{
 
@@ -84,7 +84,7 @@ pub unsafe fn exec_from_elf(&self ,elf_file: &ElfFile, argv: usize) -> isize {
     *(nowproc.trapframe_ppn.get_mut() as *mut TrapFrame) = TrapFrame::app_init_context(
 		entry,
         user_stack,
-        KERNEL_SPACE.exclusive_access().token(),
+        KERNEL_SPACE.lock().token(),
         TRAMPOLINE - KERNEL_STACK_SIZE * nowproc.pid,
         0 as usize,
     );

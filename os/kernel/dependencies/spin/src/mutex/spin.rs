@@ -177,6 +177,7 @@ impl<T: ?Sized, R: RelaxStrategy> SpinMutex<T, R> {
     pub fn lock(&self) -> SpinMutexGuard<T> {
         // Can fail to lock even if the spinlock is not locked. May be more efficient than `try_lock`
         // when called in a loop.
+		let mut count=0;
         while self
             .lock
             .compare_exchange_weak(false, true, Ordering::Acquire, Ordering::Relaxed)
@@ -184,7 +185,11 @@ impl<T: ?Sized, R: RelaxStrategy> SpinMutex<T, R> {
         {
             // Wait until the lock looks unlocked before retrying
             while self.is_locked() {
+				count+=1;
                 R::relax();
+				if(count==1000000){
+					panic!("dead lock");
+				}
             }
         }
 

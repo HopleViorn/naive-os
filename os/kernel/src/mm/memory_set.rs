@@ -9,6 +9,7 @@ use crate::sync::UPSafeCell;
 use alloc::collections::BTreeMap;
 use alloc::sync::Arc;
 use alloc::vec::Vec;
+use spin::Mutex;
 use xmas_elf::program::SegmentData;
 use core::arch::asm;
 use lazy_static::*;
@@ -30,8 +31,8 @@ extern "C" {
 
 lazy_static! {
     /// a memory set instance through lazy_static! managing kernel space
-    pub static ref KERNEL_SPACE: Arc<UPSafeCell<MemorySet>> =
-        Arc::new(unsafe { UPSafeCell::new(MemorySet::new_kernel()) });
+    pub static ref KERNEL_SPACE: Arc<Mutex<MemorySet>> =
+        Arc::new(unsafe { Mutex::new(MemorySet::new_kernel()) });
 }
 
 /// memory set structure, controls virtual-memory space
@@ -208,8 +209,6 @@ impl MemorySet {
             ),
             None,
         );
-		println!("user_stack_top:{:#x}",user_stack_top);
-		println!("user_stack_btm:{:#x}",user_stack_bottom);
         // used in sbrk
         memory_set.push(
             MapArea::new(
@@ -421,28 +420,4 @@ bitflags! {
         const X = 1 << 3;
         const U = 1 << 4;
     }
-}
-
-#[allow(unused)]
-pub fn remap_test() {
-    let mut kernel_space = KERNEL_SPACE.exclusive_access();
-    let mid_text: VirtAddr = ((stext as usize + etext as usize) / 2).into();
-    let mid_rodata: VirtAddr = ((srodata as usize + erodata as usize) / 2).into();
-    let mid_data: VirtAddr = ((sdata as usize + edata as usize) / 2).into();
-    assert!(!kernel_space
-        .page_table
-        .translate(mid_text.floor())
-        .unwrap()
-        .writable(),);
-    assert!(!kernel_space
-        .page_table
-        .translate(mid_rodata.floor())
-        .unwrap()
-        .writable(),);
-    assert!(!kernel_space
-        .page_table
-        .translate(mid_data.floor())
-        .unwrap()
-        .executable(),);
-    println!("remap_test passed!");
 }

@@ -1,0 +1,316 @@
+rm -r os/kernel/.cargo
+cp -r os/kernel/cargo-judge os/kernel/.cargo
+cd os/user_c;make build
+make[1]: Entering directory '/home/max/os/naive-os/os/user_c'
+rm -rf build
+mkdir build
+echo 
+
+riscv64-unknown-elf-g++ -w src/argtest.cc src/lib/entry_main.c src/lib/entry.S src/lib/syscall.c -o build/argtest -Wl,-T,src/lib/linker.ld -nostdlib&& riscv64-unknown-elf-objdump -D build/argtest  > build/argtest.asm;   riscv64-unknown-elf-g++ -w src/forktest.cc src/lib/entry_main.c src/lib/entry.S src/lib/syscall.c -o build/forktest -Wl,-T,src/lib/linker.ld -nostdlib&& riscv64-unknown-elf-objdump -D build/forktest  > build/forktest.asm;   riscv64-unknown-elf-g++ -w src/init.cc src/lib/entry_main.c src/lib/entry.S src/lib/syscall.c -o build/init -Wl,-T,src/lib/linker.ld -nostdlib&& riscv64-unknown-elf-objdump -D build/init  > build/init.asm;   riscv64-unknown-elf-g++ -w src/runtest.cc src/lib/entry_main.c src/lib/entry.S src/lib/syscall.c -o build/runtest -Wl,-T,src/lib/linker.ld -nostdlib&& riscv64-unknown-elf-objdump -D build/runtest  > build/runtest.asm;   riscv64-unknown-elf-g++ -w src/shell.cc src/lib/entry_main.c src/lib/entry.S src/lib/syscall.c -o build/shell -Wl,-T,src/lib/linker.ld -nostdlib&& riscv64-unknown-elf-objdump -D build/shell  > build/shell.asm; 
+make[1]: Leaving directory '/home/max/os/naive-os/os/user_c'
+cd os/kernel;make userbin
+make[1]: Entering directory '/home/max/os/naive-os/os/kernel'
+g++ -w ../tools/userbin_gen.cc -o ../tools/userbin_gen
+../tools/userbin_gen > src/user_bin.S
+make[1]: Leaving directory '/home/max/os/naive-os/os/kernel'
+cd os/kernel;make binary
+make[1]: Entering directory '/home/max/os/naive-os/os/kernel'
+cargo build --release 
+rust-objcopy --binary-architecture=riscv64  target/riscv64gc-unknown-none-elf/release/os --strip-all -O binary  target/riscv64gc-unknown-none-elf/release/os.bin
+make[1]: Leaving directory '/home/max/os/naive-os/os/kernel'
+cp os/kernel/target/riscv64gc-unknown-none-elf/release/os.bin kernel-qemu
+cp bootloader/rustsbi-qemu.bin sbi-qemu
+qemu-system-riscv64 \
+    -machine virt \
+    -nographic \
+-smp 2 \
+-m 128 \
+    -bios sbi-qemu \
+-kernel kernel-qemu \
+-drive file=sdcard.img,format=raw,if=virtio
+[rustsbi] RustSBI version 0.2.2, adapting to RISC-V SBI v1.0.0
+.______       __    __      _______.___________.  _______..______   __
+|   _  \     |  |  |  |    /       |           | /       ||   _  \ |  |
+|  |_)  |    |  |  |  |   |   (----`---|  |----`|   (----`|  |_)  ||  |
+|      /     |  |  |  |    \   \       |  |      \   \    |   _  < |  |
+|  |\  \----.|  `--'  |.----)   |      |  |  .----)   |   |  |_)  ||  |
+| _| `._____| \______/ |_______/       |__|  |_______/    |______/ |__|
+
+[rustsbi] Implementation: RustSBI-QEMU Version 0.1.1
+[rustsbi-dtb] Hart count: cluster0 with 2 cores
+[rustsbi] misa: RV64ACDFIMSU
+[rustsbi] mideleg: ssoft, stimer, sext (0x222)
+[rustsbi] medeleg: ima, ia, bkpt, la, sa, uecall, ipage, lpage, spage (0xb1ab)
+[rustsbi] pmp0: 0x10000000 ..= 0x10001fff (rw-)
+[rustsbi] pmp6: 0x2000000 ..= 0x200ffff (rw-)
+[rustsbi] pmp12: 0xc000000 ..= 0xc3fffff (rw-)
+[rustsbi] enter supervisor 0x80200000
+
+     _   _           ____   ______
+    / | / |        / __  \/ _____/
+   /  |/  | ____  / /  / / /__
+  / /| /| |/ __ \/ /  / /\___ \
+ / / |/ | / /_/ / /__/ /____/ /
+/_/     |_\____/\_____/______/
+
+mapping .rodata section
+mapping .data section
+mapping .bss section
+mapping physical memory
+mapping memory-mapped registers
+user_stack_top:0x5000
+user_stack_btm:0x3000
+entry:0x1000
+hart 0 booting.
+hart_id:1
+[New Thread] pid=0,spec=0x1000,sp=0x4ff8
+hello init
+hart_id:0
+[New Thread] pid=1,spec=0x1500,sp=0x4f68
+hart_id:1
+hart_id:1
+hart_id:1
+hart_id:1
+hart_id:1
+hart_id:1
+hart_id:1
+hart_id:1
+hart_id:1
+hart_id:1
+hart_id:1
+hart_id:1
+hart_id:1
+hart_id:1
+hart_id:1
+hart_id:1
+hart_id:1
+hart_id:1
+hart_id:1
+user_stack_top:0x6000
+user_stack_btm:0x4000
+hart_id:1
+hart_id:1
+hart_id:1
+hart_id:1
+hart_id:1
+hart_id:1
+hart_id:1
+hart_id:1
+argc:0
+hart_id:1
+hart_id:1
+hart_id:1
+usert_stack:0x5fd8
+hart_id:1
+hart_id:1
+hart_id:1
+hart_id:1
+hart_id:1
+hart_id:1
+hart_id:1
+hart_id:1
+hart_id:1
+hart_id:1
+hart_id:1
+hart_id:1
+hart_id:1
+-hart_id:1
+hart_id:1
+hart_id:1
+-hart_id:1
+-hart_id:1
+hart_id:1
+-hart_id:1
+-hart_id:1
+-hart_id:1
+-hart_id:1
+-hart_id:1
+-hart_id:1
+hart_id:1
+-hart_id:1
+hart_id:1
+shart_id:1
+hart_id:1
+hhart_id:1
+ehart_id:1
+lhart_id:1
+lhart_id:1
+ hart_id:1
+shart_id:1
+thart_id:1
+ahart_id:1
+rhart_id:1
+thart_id:1
+ehart_id:1
+dhart_id:1
+hart_id:1
+!hart_id:1
+-hart_id:1
+-hart_id:1
+-hart_id:1
+-hart_id:1
+-hart_id:1
+-hart_id:1
+-hart_id:1
+-hart_id:1
+hart_id:1
+hart_id:1
+-hart_id:1
+hart_id:1
+
+hart_id:1
+hart_id:1
+hart_id:1
+hart_id:1
+hart_id:1
+shart_id:1
+hhart_id:1
+hart_id:1
+ehart_id:1
+hart_id:1
+hart_id:1
+lhart_id:1
+lhart_id:1
+hart_id:1
+ hart_id:1
+hart_id:1
+hart_id:1
+hart_id:1
+1hart_id:1
+hart_id:1
+hart_id:1
+,hart_id:1
+lhart_id:1
+ihart_id:1
+hart_id:1
+nhart_id:1
+hart_id:1
+ehart_id:1
+ hart_id:1
+hart_id:1
+1hart_id:1
+hart_id:1
+>hart_id:1
+hart_id:1
+hart_id:1
+hart_id:1
+hart_id:1
+hart_id:1
+hart_id:1
+hart_id:1
+hart_id:1
+hart_id:1
+hart_id:1
+hart_id:1
+hart_id:1
+hart_id:1
+hart_id:1
+hart_id:1
+hhart_id:1
+hart_id:1
+hart_id:1
+hart_id:1
+hart_id:1
+hart_id:1
+
+hart_id:1
+hart_id:1
+hart_id:1
+hart_id:1
+hart_id:1
+hart_id:1
+hart_id:1
+hart_id:1
+hart_id:1
+hart_id:1
+hart_id:1
+hart_id:1
+hart_id:1
+hart_id:1
+hart_id:1
+hart_id:1
+hart_id:1
+hart_id:1
+hart_id:1
+hart_id:1
+hart_id:1
+hart_id:1
+hart_id:1
+hart_id:1
+hart_id:1
+hart_id:1
+[New Thread] pid=2,spec=0x1730,sp=0x5f38
+hart_id:0
+hart_id:0
+hart_id:0
+hart_id:0
+h : not found.
+hart_id:0
+hart_id:0
+hart_id:0
+hart_id:0
+hart_id:0
+hart_id:0
+hart_id:1
+hart_id:1
+hart_id:1
+hart_id:1
+hart_id:1
+[hart_id:1
+shart_id:1
+hhart_id:1
+hart_id:1
+ehart_id:1
+lhart_id:1
+hart_id:1
+lhart_id:1
+]hart_id:1
+ hart_id:1
+hart_id:1
+ehart_id:1
+hart_id:1
+hart_id:1
+xhart_id:1
+ehart_id:1
+chart_id:1
+ hart_id:1
+ehart_id:1
+xhart_id:1
+ihart_id:1
+thart_id:1
+ehart_id:1
+dhart_id:1
+ hart_id:1
+whart_id:1
+ihart_id:1
+thart_id:1
+hhart_id:1
+ hart_id:1
+hart_id:1
+hart_id:1
+-hart_id:1
+1hart_id:1
+.hart_id:1
+
+hart_id:1
+hart_id:1
+shart_id:1
+hhart_id:1
+ehart_id:1
+lhart_id:1
+lhart_id:1
+ hart_id:1
+1hart_id:1
+,hart_id:1
+hart_id:1
+lhart_id:1
+ihart_id:1
+nhart_id:1
+ehart_id:1
+hart_id:1
+ hart_id:1
+2hart_id:1
+>hart_id:1
+hart_id:1
+hart_QEMU: Terminated
+

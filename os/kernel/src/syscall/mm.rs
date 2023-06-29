@@ -9,7 +9,7 @@ use crate::{
         memory_set::{MapArea, MapType},
         MapPermission, VirtAddr, VirtPageNum,
     },
-    task::{  task_list, Thread},
+    task::{Thread},
 };
 
 impl Thread{

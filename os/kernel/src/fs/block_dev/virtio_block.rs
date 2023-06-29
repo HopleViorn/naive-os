@@ -110,5 +110,5 @@ pub extern "C" fn virtio_phys_to_virt(paddr: PhysAddr) -> VirtAddr {
 
 #[no_mangle]
 pub extern "C" fn virtio_virt_to_phys(vaddr: VirtAddr) -> PhysAddr {
-	PageTable::from_token(KERNEL_SPACE.exclusive_access().token()).translate_va(vaddr).unwrap()
+	PageTable::from_token(KERNEL_SPACE.lock().token()).translate_va(vaddr).unwrap()
 }

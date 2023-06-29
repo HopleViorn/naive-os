@@ -6,7 +6,7 @@ use lazy_static::lazy_static;
 
 use crate::{mm::MemorySet, sync::UPSafeCell};
 
-use super::{task_list, ProcessContext, PCB};
+use super::{ProcessContext, PCB};
 
 pub struct CPU {
     pub context: ProcessContext,
@@ -20,8 +20,4 @@ impl CPU {
             proc_idx: 0,
         }
     }
-}
-
-lazy_static! {
-    pub static ref CPUS: UPSafeCell<CPU> = unsafe { UPSafeCell::new(CPU::new()) };
 }

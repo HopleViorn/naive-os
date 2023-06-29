@@ -51,6 +51,7 @@ debug: all
 	qemu-system-riscv64 \
     -machine virt \
     -nographic \
+	-smp 2 \
 	-m 128 \
     -bios sbi-qemu \
 	-kernel kernel-qemu \

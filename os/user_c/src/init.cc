@@ -4,8 +4,8 @@ signed main(){
 	printf("hello init\n");
 	if(fork()==0){
 		// execve("clone", 0, 0);
-		execve("busybox", 0, 0);
-		// execve("shell", 0, 0);
+		// execve("busybox", 0, 0);
+		execve("shell", 0, 0);
 		// execve("runtest", 0, 0);
 		// execve("shell", 0, 0);
 		// execve("runtest", 0, 0);

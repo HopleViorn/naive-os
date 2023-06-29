@@ -26,7 +26,7 @@ use crate::{
     sbi::console_getchar,
     task::{
         global_buffer_list, global_dentry_cache, global_open_file_table,
-        task_list, FdManager, FileDescriptor, OpenFile,
+        FdManager, FileDescriptor, OpenFile,
     },
 };
 

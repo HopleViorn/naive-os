@@ -61,7 +61,7 @@ use crate::{
         page_table::{translate_str, PageTable},
         VirtAddr,
     },
-    task::{task_list, PCB, proc, Thread},
+    task::{PCB, proc, Thread},
 };
 
 #[repr(C)]
@@ -82,7 +82,7 @@ impl Thread{
 			.get_mut() as *mut u8 as usize
 	}
 	pub async unsafe fn syscall(& self, syscall_id: usize, args: [usize; 6]) -> isize {
-		println!("[syscall] id={}",syscall_id);
+		// println!("[syscall] id={}",syscall_id);
 		let result = match syscall_id {
 			SYSCALL_WRITE => self.sys_write(args[0], args[1] as *const u8, args[2]),
 			SYSCALL_EXIT =>  self.sys_exit(args[0] as i32),

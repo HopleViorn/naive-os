@@ -2,6 +2,7 @@
 #![no_main]
 #![feature(panic_info_message)]
 #![feature(alloc_error_handler)]
+#![feature(const_trait_impl)]
 #![feature(map_first_last)]
 #![allow(unused)]
 
@@ -9,7 +10,7 @@ extern crate alloc;
 
 use alloc::collections::VecDeque;
 use async_task::Runnable;
-use lazy_static::lazy_static;
+use lazy_static::{lazy_static, __Deref};
 use spin::Mutex;
 use spin::mutex::SpinMutex;
 use sync::UPSafeCell;
@@ -29,6 +30,7 @@ mod mm;
 mod sbi;
 mod sync;
 mod task;
+mod xdebug;
 
 pub mod syscall;
 pub mod timer;
@@ -43,7 +45,7 @@ use crate::{
     console::print,
     mm::{translated_byte_buffer, MemorySet, KERNEL_SPACE},
     sbi::{console_getchar, console_putchar, shutdown},
-    task::{task_list, ProcessContext, PCB},
+    task::{ ProcessContext, PCB},
     timer::{get_time, set_next_trigger},
 };
 use alloc::{boxed::Box, sync::Arc, vec, vec::Vec};
@@ -92,7 +94,7 @@ fn crate_task_from_elf(userbin: &[u8]) {
     // let user_pagetable=&mut task.memory_set;
     let (user_pagetable, user_stack, entry) = MemorySet::from_elf(&elf_file);
     println!("entry:{:#x}", entry);
-    KERNEL_SPACE.exclusive_access().insert_framed_area(
+    KERNEL_SPACE.lock().insert_framed_area(
         (TRAMPOLINE - KERNEL_STACK_SIZE * (pid + 1)).into(),
         (TRAMPOLINE - KERNEL_STACK_SIZE * pid).into(),
         MapPermission::R | MapPermission::W,
@@ -108,7 +110,7 @@ fn crate_task_from_elf(userbin: &[u8]) {
     *task.trapframe_ppn.get_mut() = TrapFrame::app_init_context(
         entry,
         user_stack - 8,
-        KERNEL_SPACE.exclusive_access().token(),
+        KERNEL_SPACE.lock().token(),
         TRAMPOLINE - KERNEL_STACK_SIZE * pid,
         0 as usize,
     );
@@ -127,7 +129,7 @@ fn crate_task_from_elf(userbin: &[u8]) {
 
 
 #[no_mangle]
-unsafe fn load_user_file() {
+fn load_init() {
     extern "C" {
         fn init_start();
         fn init_end();
@@ -136,30 +138,71 @@ unsafe fn load_user_file() {
 		fn busybox_start();
         fn busybox_end();
     }
-    // crate_task_from_elf(slice::from_raw_parts(
-    //     busybox_start as *const u8,
-    //     busybox_end as usize - init_start as usize,
-    // ));
-    crate_task_from_elf(slice::from_raw_parts(
-        init_start as *const u8,
-        init_end as usize - init_start as usize,
-    ));
-	loop{
-		let runnable: Runnable=TASK_QUEUE.fetch();
-		runnable.run();
+	// unsafe{
+	// 	crate_task_from_elf(slice::from_raw_parts(
+	// 		forktest_start as *const u8,
+	// 		forktest_end as usize - forktest_start as usize,
+	// 	));
+	// }
+	unsafe{
+		crate_task_from_elf(slice::from_raw_parts(
+			init_start as *const u8,
+			init_end as usize - init_start as usize,
+		));
 	}
 }
 
-static LOCK: AtomicU8 = AtomicU8::new(0);
+// static LOCK: AtomicU8 = AtomicU8::new(0);
+struct Booting{
+	state:bool
+}
+
+impl Booting{
+	pub const fn new()->Self{
+		Self{
+			state:false
+		}
+	}
+	pub fn do_finish(&self)->bool{
+		self.state
+	}
+	pub fn set_finish(& mut self){
+		self.state=true;
+	}
+}
+
+static BOOT:Mutex<Booting>=Mutex::new(Booting :: new());
+
+#[link_section = "data"]
+static FIRST_HART: AtomicBool = AtomicBool::new(false);
+static INIT_START: AtomicBool = AtomicBool::new(false);
+
+macro_rules! smp_v {
+    ($a: ident -= $v: literal) => {
+        $a.fetch_sub($v, Ordering::Release);
+    };
+    ($a: ident => $v: literal) => {
+        while $a.load(Ordering::Acquire) != $v {
+            core::hint::spin_loop();
+        }
+    };
+    ($v: expr => $a: ident) => {
+        $a.store($v, Ordering::Release);
+    };
+    ($a: ident => $v: expr) => {
+        while $a.load(Ordering::Acquire) != $v {
+            core::hint::spin_loop();
+        }
+    };
+}
+
 
 #[no_mangle]
-pub fn rust_main() -> ! {
-    clear_bss();
-    while (!LOCK
-        .compare_exchange(0, 1, Ordering::SeqCst, Ordering::SeqCst)
-        .is_ok())
-		{}
-		// println!("-----------NAIVE-OS-----------");
+pub fn rust_main(hart_id:usize) -> ! {
+	if FIRST_HART
+        .compare_exchange(false, true, Ordering::SeqCst, Ordering::SeqCst)
+        .is_ok()
+	{
 		println!("");
 		println!("     _   _           ____   ______");
 		println!("    / | / |        / __  \\/ _____/");
@@ -168,16 +211,27 @@ pub fn rust_main() -> ! {
 		println!(" / / |/ | / /_/ / /__/ /____/ /");
 		println!("/_/     |_\\____/\\_____/______/");
 		println!("");
-		trap::init();
+		clear_bss();
 		mm::init();
-    // unsafe {sie::set_stimer();}
-    // set_next_trigger();
-	// block_device_test();
-	// panic!("success.");
-    unsafe {
-        load_user_file();
-    }
-    println!("unreachable part.");
+		trap::init();
+		// unsafe {sie::set_stimer();}
+		load_init();
+		smp_v!(true => INIT_START);
+	}else{
+		smp_v!(INIT_START => true);
+		println!("hart {} booting.",hart_id);
+		KERNEL_SPACE.lock().activate();
+		trap::init();
+	}
+	loop{
+		if let Some(runnable)=TASK_QUEUE.fetch(){
+			// println!("hart_id:{}",hart_id);
+			runnable.run();
+		}else{
+		}
+	}
+
+    println!("[main] unreachable part.");
     loop {}
 }
 

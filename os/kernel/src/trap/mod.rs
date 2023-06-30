@@ -87,26 +87,28 @@ pub async unsafe fn user_loop(thread: Arc<Thread>){
 		
 		
 		set_kernel_trap();
-		let mut pcb=thread.proc.inner.lock();
-		
-		let scause = scause::read(); // get trap cause
+		{
+			let mut pcb=thread.proc.inner.lock();
+			// println!("USER TRAP: stval={:#x}",stval);
+			// println!("spec={:#x}",(*(pcb.trapframe_ppn.get_mut() as *mut TrapFrame)).sepc);
+			pcb.utime+=get_time_ms()-pcb.otime;
+			pcb.otime=get_time_ms();
+		}
 		let stval = stval::read(); // get extra value
-		// println!("USER TRAP: stval={:#x}",stval);
-		// println!("spec={:#x}",(*(pcb.trapframe_ppn.get_mut() as *mut TrapFrame)).sepc);
-		pcb.utime+=get_time_ms()-pcb.otime;
-		pcb.otime=get_time_ms();
-		drop(pcb);
+		let scause = scause::read(); // get trap cause
 		
 		match scause.cause() {
 			Trap::Exception(Exception::UserEnvCall) => {
-				let mut pcb=thread.proc.inner.lock();
-				let mut cx: &mut TrapFrame = pcb
-				.trapframe_ppn
-				.get_mut();
-			cx.sepc += 4;
-			println!("sepc={:#x}",cx.sepc);
+				let mut cx={
+					let mut pcb=thread.proc.inner.lock();
+					let mut cx: &mut TrapFrame = pcb
+					.trapframe_ppn
+					.get_mut();
+					cx.sepc += 4;
+					println!("sepc={:#x}",cx.sepc);
+					cx
+				};
 			// println!("[syscall] id= {}",cx.x[17]);
-			drop(pcb);
 			let result = thread.syscall(
 				cx.x[17],
 					[cx.x[10], cx.x[11], cx.x[12], cx.x[13], cx.x[14], cx.x[15]],

@@ -187,7 +187,7 @@ impl<T: ?Sized, R: RelaxStrategy> SpinMutex<T, R> {
             while self.is_locked() {
 				count+=1;
                 R::relax();
-				if(count==1000000){
+				if count==1000000{
 					panic!("dead lock");
 				}
             }

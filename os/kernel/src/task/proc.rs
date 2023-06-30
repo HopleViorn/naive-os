@@ -62,7 +62,7 @@ pub unsafe fn exec_from_elf(&self ,elf_file: &ElfFile, argv: usize) -> isize {
 
 	//AT_RANDOM
 	pos.push(25);
-	pos.push(at_random);
+	pos.push(at_random-8);
 
 	//AT_NULL
 	pos.push(0);
@@ -73,7 +73,7 @@ pub unsafe fn exec_from_elf(&self ,elf_file: &ElfFile, argv: usize) -> isize {
 		user_stack_kernel -= 8;
         user_stack -= 8;
         *(user_stack_kernel as *mut usize) = pos[len - i -1 ];
-		// println!("{:#x}:::{:#x}",user_stack,pos[len-i-1]);
+		println!("{:#x}:::{:#x}",user_stack,pos[len-i-1]);
     }
 	let argv_begin=user_stack;
 
@@ -81,15 +81,15 @@ pub unsafe fn exec_from_elf(&self ,elf_file: &ElfFile, argv: usize) -> isize {
 	user_stack_kernel -= 8;
 	user_stack -= 8;
 	*(user_stack_kernel as *mut usize) = argv_begin;
-	// println!("{:#x}",argv_begin);
+	println!("{:#x}",argv_begin);
 	
 	
 	//argc
 	user_stack_kernel -= 8;
 	user_stack -= 8;
 	*(user_stack_kernel as *mut usize) = argc;
-	// println!("argc:{}",argc);
-	// println!("usert_stack:{:#x}",user_stack);
+	println!("argc:{}",argc);
+	println!("usert_stack:{:#x}",user_stack);
 	
     *(nowproc.trapframe_ppn.get_mut() as *mut TrapFrame) = TrapFrame::app_init_context(
 		entry,

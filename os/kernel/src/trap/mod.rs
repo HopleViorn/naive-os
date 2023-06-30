@@ -104,7 +104,7 @@ pub async unsafe fn user_loop(thread: Arc<Thread>){
 				.trapframe_ppn
 				.get_mut();
 			cx.sepc += 4;
-			// println!("sepc={:#x}",cx.sepc);
+			println!("sepc={:#x}",cx.sepc);
 			// println!("[syscall] id= {}",cx.x[17]);
 			drop(pcb);
 			let result = thread.syscall(

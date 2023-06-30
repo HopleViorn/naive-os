@@ -38,6 +38,8 @@ const SYSCALL_SIGACTION: usize = 134;
 const SYSCALL_SIGPROCMASK: usize = 135;
 const SYSCALL_TIMES: usize = 153;
 const SYSCALL_UNAME: usize = 160;
+const SYSCALL_GETRLIMIT: usize=163;
+const SYSCALL_SETRLIMIT: usize=164;
 const SYSCALL_GETTIMEOFDAY: usize = 169;
 const SYSCALL_GETPID: usize = 172;
 const SYSCALL_GETPPID: usize = 173;
@@ -52,6 +54,7 @@ const SYSCALL_CLONE: usize = 220;
 const SYSCALL_EXECVE: usize = 221;
 const SYSCALL_MMAP: usize = 222;
 const SYSCALL_WAITPID: usize = 260;
+const SYSCALL_PRLIMIT: usize = 261;
 
 pub mod fs;
 pub mod interrupt;
@@ -169,6 +172,9 @@ impl Thread{
 			SYSCALL_GETTID =>0,//TODO
 			SYSCALL_TGKILL=>0,//TODO
 			SYSCALL_SIGACTION=>0,//TODO
+			SYSCALL_GETRLIMIT=>0,//TODO
+			SYSCALL_SETRLIMIT=>0,//TODO
+			SYSCALL_PRLIMIT=>0,//TODO
 			_ => panic!("Unsupported syscall_id: {}", syscall_id),
 		};
 		result

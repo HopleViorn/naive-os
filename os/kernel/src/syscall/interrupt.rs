@@ -22,8 +22,8 @@ impl utsname {
 	pub fn new() -> Self {
 		let sysname = b"MoOS\0";
 		let nodename = b"localhost\0";
-		let release = b"0.1.0\0";
-		let version = b"0.1.0\0";
+		let release = b"9.9.9\0";
+		let version = b"9.9.9\0";
 		let machine = b"riscv64\0";
 		let domainname = b"localhost\0";
 

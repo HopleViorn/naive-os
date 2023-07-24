@@ -90,7 +90,6 @@ impl Thread{
 				),
 				Some(
 					pcb.fd_manager.fd_array[fd]
-						.open_file
 						.lock()
 						.inode
 						.lock()
@@ -105,5 +104,10 @@ impl Thread{
 
 	pub fn sys_munmap(start: *mut usize, len: usize) -> isize {
 		return 0;
+	}
+	pub fn sys_fcntl(&self, fd: usize, cmd: usize, arg :usize) -> isize{
+		println!("fd:{}",fd);
+		println!("cmd:{}",cmd);
+		0
 	}
 }

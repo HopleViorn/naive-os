@@ -13,6 +13,8 @@
 const SYSCALL_GETCWD: usize = 17;
 const SYSCALL_DUP: usize = 23;
 const SYSCALL_DUP3: usize = 24;
+const SYSCALL_IOCTL: usize = 29;
+const SYSCALL_FCNTL: usize = 25;
 const SYSCALL_MKDIRAT: usize = 34;
 const SYSCALL_UNLINKAT: usize = 35;
 const SYSCALL_UMOUNT: usize = 39;
@@ -178,6 +180,8 @@ impl Thread{
 			SYSCALL_PIPE2 => {
 				self.sys_pipe2(self.translate(args[0]) as *mut u32)
 			}
+			SYSCALL_IOCTL=>0,
+			SYSCALL_FCNTL=> self.sys_fcntl(args[0],args[1],args[2]),
 			SYSCALL_GETEUID => 0,
 			SYSCALL_GETUID => 0,
 			SYSCALL_GETGID => 0,

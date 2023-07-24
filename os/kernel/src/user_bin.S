@@ -2,12 +2,13 @@
 	.section .data
 	.globl _app_num
 _app_num:
-	.quad 39
+	.quad 40
 	.quad init_start
 	.quad shell_start
 	.quad forktest_start
 	.quad argtest_start
 	.quad runtest_start
+	.quad iotest_start
 	.quad getpid_start
 	.quad getppid_start
 	.quad read_start
@@ -51,6 +52,7 @@ _app_names:
 	.string "forktest"
 	.string "argtest"
 	.string "runtest"
+	.string "iotest"
 	.string "getpid"
 	.string "getppid"
 	.string "read"
@@ -125,6 +127,14 @@ argtest_end:
 runtest_start:
 	.incbin "../user_c/build/runtest"
 runtest_end:
+
+	.section .data
+	.global iotest_start
+	.global iotest_end
+	.align 3
+iotest_start:
+	.incbin "../user_c/build/iotest"
+iotest_end:
 
 	.global getpid_start
 	.global getpid_end

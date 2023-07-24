@@ -69,12 +69,16 @@ pub enum ProcessState {
 pub struct OpenFile {
     pub offset: usize,
     pub status_flags: u32,
+	pub readable: bool,
+	pub writable: bool,
     pub inode: Arc<Mutex<dyn INode>>,
 }
 
 impl OpenFile {
     pub fn new() -> Self {
         Self {
+			readable: true,
+			writable: true,
             offset: 0,
             status_flags: 0,
             inode: Arc::new(Mutex::new(RegFileINode::new(
@@ -89,6 +93,8 @@ impl OpenFile {
 
     pub fn new_stdin() -> Self {
         Self {
+			readable: true,
+			writable: false,
             offset: 0,
             status_flags: 0,
             inode: Arc::new(Mutex::new(TerminalINode::new_stdin())),
@@ -97,6 +103,8 @@ impl OpenFile {
 
     pub fn new_stdout() -> Self {
         Self {
+			readable: false,
+			writable: true,
             offset: 0,
             status_flags: 0,
             inode: Arc::new(Mutex::new(TerminalINode::new_stdout())),
@@ -105,17 +113,21 @@ impl OpenFile {
 
     pub fn new_stderr() -> Self {
         Self {
+			readable: false,
+			writable: true,
             offset: 0,
             status_flags: 0,
             inode: Arc::new(Mutex::new(TerminalINode::new_stderr())),
         }
     }
 
-    pub fn new_pipe() -> Self {
+    pub fn new_from_inode(readable:bool, writable:bool, inode :Arc<Mutex<dyn INode> >) -> Self {
         Self {
+			readable: readable,
+			writable: writable,
             offset: 0,
             status_flags: 0,
-            inode: Arc::new(Mutex::new(PipeINode::new_pipe())),
+            inode: inode,
         }
     }
 }
@@ -164,71 +176,56 @@ pub struct FileDescriptor {
 
 #[derive(Clone, Default)]
 pub struct FdManager {
-    pub fd_array: Vec<FileDescriptor>,
+	// TODO
+    pub fd_array: Vec<Arc<Mutex<OpenFile>>>,
 }
 
 impl FdManager {
     pub fn new() -> Self {
-        let mut v = Vec::new();
+        let mut v: Vec<Arc<Mutex<OpenFile>>> = Vec::new();
         // 0, 1, 2 are reserved for stdin, stdout, stderr
-        v.push(FileDescriptor {
-            open_file: Arc::new(Mutex::new(OpenFile::new_stdin())),
-            readable: true,
-            writable: false,
-        });
-        v.push(FileDescriptor {
-            open_file: Arc::new(Mutex::new(OpenFile::new_stdout())),
-            readable: false,
-            writable: true,
-        });
-        v.push(FileDescriptor {
-            open_file: Arc::new(Mutex::new(OpenFile::new_stderr())),
-            readable: false,
-            writable: true,
-        });
+        v.push(Arc::new(Mutex::new(OpenFile::new_stdin())));
+        v.push(Arc::new(Mutex::new(OpenFile::new_stdout())));
+        v.push(Arc::new(Mutex::new(OpenFile::new_stderr())));
         Self { fd_array: v }
     }
     pub fn len(&self) -> usize {
         self.fd_array.len()
     }
     pub fn close(&mut self, fd: usize) {
-        let fd: Option<&mut FileDescriptor> = self.fd_array.get_mut(fd);
-        if let Some(fd) = fd {
-            if fd.readable || fd.writable {
-                // Do nothing
-                return;
-            }
-            fd.open_file = Arc::new(Mutex::new(OpenFile::new()));
-        }
+        // let fd: Option<&mut FileDescriptor> = self.fd_array.get_mut(fd);
+        // if let Some(fd) = fd {
+        //     if fd.readable || fd.writable {
+        //         // Do nothing
+        //         return;
+        //     }
+        //     fd.open_file = Arc::new(Mutex::new(OpenFile::new()));
+        // }
     }
-    pub fn insert(&mut self, file_descriptor: FileDescriptor) -> usize {
-        self.fd_array.push(file_descriptor);
+    pub fn push(&mut self, open_file:Arc<Mutex<OpenFile>>) -> usize {
+        self.fd_array.push(open_file);
         self.fd_array.len() - 1
     }
-    pub fn get(&self, fd: usize) -> Option<&FileDescriptor> {
+    pub fn get(&self, fd: usize) -> Option<&Arc<Mutex<OpenFile>>> {
         self.fd_array.get(fd)
     }
-    pub fn get_mut(&mut self, fd: usize) -> Option<&mut FileDescriptor> {
+    pub fn get_mut(&mut self, fd: usize) -> Option<&mut Arc<Mutex<OpenFile>>> {
         self.fd_array.get_mut(fd)
     }
-    pub fn remove(&mut self, fd: usize) -> FileDescriptor {
+    pub fn remove(&mut self, fd: usize) -> Arc<Mutex<OpenFile>> {
         self.fd_array.remove(fd)
     }
-    pub fn alloc_fd(&mut self, readable: bool, writable: bool) -> usize {
-        let mut i = 0;
-        // while i < self.fd_array.len() {
-        //     if self.fd_array[i].open_file.inode.lock().get_type() == INodeType::NULL {
-        //         return i;
-        //     }
-        //     i += 1;
-        // }
-        self.fd_array.push(FileDescriptor {
-            open_file: Arc::new(Mutex::new(OpenFile::new())),
-            readable,
-            writable,
-        });
-        self.fd_array.len() - 1
-    }
+	pub fn dup(&mut self,fd:usize)->usize{
+		let open_file=self.get(fd).unwrap().clone();
+		self.fd_array.push(open_file);
+		self.fd_array.len()-1
+	}
+	pub fn dup3(&mut self,fd:usize,new_fd:usize)->usize{
+		//TODO
+		let open_file=self.get(fd).unwrap().clone();
+		self.fd_array.push(open_file);
+		self.fd_array.len()-1
+	}
 }
 #[derive(Default)]
 pub struct GlobalInodeTable {

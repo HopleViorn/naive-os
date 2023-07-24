@@ -6,7 +6,8 @@ char* user_c_name[]={
 	"shell",
 	"forktest",
 	"argtest",
-	"runtest"
+	"runtest",
+	"iotest",
 };
 
 char* testsuits_name[]={

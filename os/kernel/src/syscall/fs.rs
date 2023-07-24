@@ -34,8 +34,27 @@ use crate::{
 const FD_STDOUT: usize = 1;
 const FD_STDIN: usize = 0;
 
-impl Thread{
+#[repr(usize)]
+#[allow(non_camel_case_types)]
+#[derive(Debug)]
+/// sys_fcntl64 使用的选项
+pub enum Fcntl64Cmd {
+	/// 复制这个 fd，相当于 sys_dup
+	F_DUPFD = 0,
+	/// 获取 cloexec 信息，即 exec 成功时是否删除该 fd
+	F_GETFD = 1,
+	/// 设置 cloexec 信息，即 exec 成功时删除该 fd
+	F_SETFD = 2,
+	/// 获取 flags 信息
+	F_GETFL = 3,
+	/// 设置 flags 信息
+	F_SETFL = 4,
+	/// 复制 fd，然后设置 cloexec 信息，即 exec 成功时删除该 fd
+	F_DUPFD_CLOEXEC = 1030,
+}
 
+
+impl Thread{
 // int getcwd(char *buf, size_t size);
 	pub fn sys_getcwd(&self, buf: *mut u8, size: usize) -> isize {
 		let task=self.proc.inner.lock();
@@ -76,57 +95,25 @@ impl Thread{
 				path.to_string()
 			};
 		}
-		// let start_dir_path = if path == "./text.txt" {
-			//     // println!("Hi, this is a text file.");
-			//     // println!("syscalls testing success!");
-			//     // println!("");
-			//     // println!("");
-			//     "/mnt/".to_string()
-			// } else {
-				//     "/".to_string()
-		// };
-		// println!(
-			//     "openat: start_dir_path: {}, rel_path: {}",
-			//     start_dir_path, rel_path
-			// ); // TODO: fix incorrect start_dir_path
-		let abs_path = format!("{}{}", start_dir_path, rel_path);
-		// println!("[openat] path={}",abs_path);
-		let fd;
-		// println!("!!!{}",abs_path);
-		let inode = match global_dentry_cache.get(&abs_path) {
-			Some(inode) => {
-				if &inode.lock().file_name() == "null" {
-					// println!("openat: file not found 'null'");
-					return -1;
-				}
-				let open_file = Arc::new(Mutex::new(OpenFile {
-					offset: 0,
-					status_flags: flags as u32,
-					inode: inode.clone(),
-				}));
 
-				let file_descriptor = FileDescriptor {
-					open_file: open_file.clone(),
-					readable: ((flags as u32 ^ OpenFlags::RDONLY.bits())
-						| (flags as u32 ^ OpenFlags::RDWR.bits()))
-						!= 0,
-					writable: ((flags as u32 ^ OpenFlags::WRONLY.bits())
-						| (flags as u32 ^ OpenFlags::RDWR.bits()))
-						!= 0,
-				};
-				let fd_manager = &mut task.fd_manager;
-				for (i, fd_ref) in fd_manager.fd_array.iter().enumerate() {
-					if Arc::ptr_eq(&fd_ref.open_file.lock().inode, &inode) {
-						fd_manager.fd_array[i] = file_descriptor;
-						// println!("!!!{}",233);
-						return i as isize;
-					}
-				}
-				fd = fd_manager.insert(file_descriptor);
-				inode.clone()
+
+		let abs_path = format!("{}{}", start_dir_path, rel_path);
+		println!("[openat] path={}",abs_path);
+		let fd=match global_dentry_cache.get(&abs_path) {
+			Some(inode) => {
+				let open_file=Arc::new(Mutex::new(OpenFile::new_from_inode(
+					((flags as u32 ^ OpenFlags::RDONLY.bits())
+							| (flags as u32 ^ OpenFlags::RDWR.bits()))
+							!= 0,
+					((flags as u32 ^ OpenFlags::WRONLY.bits())
+							| (flags as u32 ^ OpenFlags::RDWR.bits()))
+							!= 0, inode,
+
+				)));
+				task.fd_manager.push(open_file) as isize
 			}
 			None => {
-				// println!("[debug]CREATING new file.");
+				println!("CREATING new file.");
 				// create a new file in fs
 				let new_inode = Arc::new(Mutex::new(RegFileINode {
 					// Initialize the new inode with the required fields
@@ -141,28 +128,35 @@ impl Thread{
 					file: Vec::new(),
 				}));
 				global_dentry_cache.insert(&abs_path, new_inode.clone());
+				task.fd_manager.push(Arc::new(Mutex::new(OpenFile::new_from_inode(
+					((flags as u32 ^ OpenFlags::RDONLY.bits())
+					| (flags as u32 ^ OpenFlags::RDWR.bits()))
+					!= 0,
+					((flags as u32 ^ OpenFlags::WRONLY.bits())
+					| (flags as u32 ^ OpenFlags::RDWR.bits()))
+					!= 0, new_inode)))
+				) as isize
+				// // add open file to global open file table
+				// let open_file = Arc::new(Mutex::new(OpenFile {
+				// 	offset: 0,
+				// 	status_flags: flags as u32,
+				// 	inode: new_inode.clone(),
+				// }));
 
-				// add open file to global open file table
-				let open_file = Arc::new(Mutex::new(OpenFile {
-					offset: 0,
-					status_flags: flags as u32,
-					inode: new_inode.clone(),
-				}));
-
-				// update fd manager
-				let file_descriptor = FileDescriptor {
-					open_file: open_file.clone(),
-					readable: ((flags as u32 ^ OpenFlags::RDONLY.bits())
-						| (flags as u32 ^ OpenFlags::RDWR.bits()))
-						!= 0,
-					writable: ((flags as u32 ^ OpenFlags::WRONLY.bits())
-						| (flags as u32 ^ OpenFlags::RDWR.bits()))
-						!= 0,
-				};
-				let fd_manager = &mut task.fd_manager;
-				fd = fd_manager.len();
-				fd_manager.insert(file_descriptor);
-				new_inode
+				// // update fd manager
+				// let file_descriptor = FileDescriptor {
+				// 	open_file: open_file.clone(),
+				// 	readable: ((flags as u32 ^ OpenFlags::RDONLY.bits())
+				// 		| (flags as u32 ^ OpenFlags::RDWR.bits()))
+				// 		!= 0,
+				// 	writable: ((flags as u32 ^ OpenFlags::WRONLY.bits())
+				// 		| (flags as u32 ^ OpenFlags::RDWR.bits()))
+				// 		!= 0,
+				// };
+				// let fd_manager = &mut task.fd_manager;
+				// fd = fd_manager.len();
+				// fd_manager.insert(file_descriptor);
+				// new_inode
 			}
 		};
 		fd as isize
@@ -180,18 +174,16 @@ impl Thread{
 
 	/// write `buf` of length `len`  to a file with `fd`
 	pub fn sys_write(&self, fd: usize, buf: *const u8, len: usize) -> isize {
-		
 		let task = &mut self.proc.inner.lock();
 		let fd_manager = &task.fd_manager;
-		let fde = &fd_manager.fd_array[fd];
-		if !fde.writable {
+		let open_file = & mut fd_manager.fd_array[fd].lock();
+		if !open_file.writable {
 			return -1;
 		}
 		let buffers = translated_byte_buffer(task.memory_set.token(), buf, len);
 		let mut sum = 0;
 		
 		for buffer in buffers {
-			let mut open_file = fde.open_file.lock();
 			let write_in = open_file
 				.inode
 				.lock()
@@ -275,7 +267,7 @@ impl Thread{
 							new_path.push('/');
 							Thread::full_search_mount(new_dir,new_path);
 						}else{
-							panic!("!");
+							panic!("Mount Exception.");
 						}
 					}
 				}
@@ -312,8 +304,8 @@ impl Thread{
 		let mut task = pcb_lock.deref_mut();
 		let memory_set=&task.memory_set;
 		let fd_manager = &task.fd_manager;
-		let fde = &fd_manager.fd_array[fd];
-		if !fde.readable {
+		let open_file = &mut fd_manager.fd_array[fd].lock();
+		if !open_file.readable {
 			return -1;
 		}
 		// println!("[read] len={},fd={}",len,fd);
@@ -321,7 +313,6 @@ impl Thread{
 		let mut sum = 0;
 		for buffer in buffers {
 			for i in 0..10 {
-				let mut open_file = fde.open_file.lock();
 				let read_in = open_file
 					.inode
 					.lock()
@@ -332,7 +323,6 @@ impl Thread{
 				if read_in > 0 {
 					break;
 				} else {
-					drop(open_file);
 					self.proc.inner.force_unlock();
 					Thread::async_yield().await;
 				}
@@ -354,7 +344,7 @@ impl Thread{
 		}
 
 		// println!("openat: fd: {}, buf: {:?}, len: {}", fd, buf, len);
-		let open_file = file_descriptor.open_file.clone();
+		let open_file: Arc<spin::mutex::Mutex<OpenFile>> = file_descriptor.clone();
 		let inode = open_file.lock().inode.clone();
 		let mut entries: Vec<String> = Vec::new();
 		entries = match inode.lock().list() {
@@ -399,80 +389,91 @@ impl Thread{
 	}
 
 	// SYSCALL_DUP => sys_dup(args[0] as isize),
-
-	pub fn sys_dup(&self, fd: isize) -> isize {
-		let fd = fd as usize;
-		let mut task=self.proc.inner.lock();
-		let mut fd_manager = &mut task.fd_manager;
-
-		if fd >= fd_manager.len() {
-			return -1;
-		}
-
-		let file_descriptor = &fd_manager.fd_array[fd].clone();
-		if !file_descriptor.readable && !file_descriptor.writable {
-			return -1;
-		}
-
-		let open_file = file_descriptor.open_file.clone();
-		let inode = open_file.lock().inode.clone();
-
-		let mut new_fd = -1;
-		for (i, fd) in fd_manager.fd_array.iter().enumerate() {
-			if !fd.readable && !fd.writable {
-				new_fd = i as isize;
-				break;
-			}
-		}
-
-		if new_fd == -1 {
-			new_fd = fd_manager.len() as isize;
-		}
-
-		fd_manager.fd_array.push(FileDescriptor {
-			readable: file_descriptor.readable,
-			writable: file_descriptor.writable,
-			open_file: open_file,
-		});
-		new_fd
+	
+	pub fn sys_dup(&self, fd:isize) ->isize{
+		let mut pcb=self.proc.inner.lock();
+		let mut fd_manager=&mut pcb.fd_manager;
+		fd_manager.dup(fd as usize) as isize
 	}
+	pub fn sys_dup3(&self, fd: isize, new_fd: isize, flags: isize) ->isize{
+		let mut pcb=self.proc.inner.lock();
+		let mut fd_manager=&mut pcb.fd_manager;
+		fd_manager.dup3(fd as usize,new_fd as usize) as isize
+	}
+
+	// pub fn sys_dup(&self, fd: isize) -> isize {
+	// 	let fd = fd as usize;
+	// 	let mut task=self.proc.inner.lock();
+	// 	let mut fd_manager = &mut task.fd_manager;
+
+	// 	if fd >= fd_manager.len() {
+	// 		return -1;
+	// 	}
+
+	// 	let file_descriptor = &fd_manager.fd_array[fd].clone();
+	// 	if !file_descriptor.readable && !file_descriptor.writable {
+	// 		return -1;
+	// 	}
+
+	// 	let open_file = file_descriptor.open_file.clone();
+	// 	let inode = open_file.lock().inode.clone();
+
+	// 	let mut new_fd = -1;
+	// 	for (i, fd) in fd_manager.fd_array.iter().enumerate() {
+	// 		if !fd.readable && !fd.writable {
+	// 			new_fd = i as isize;
+	// 			break;
+	// 		}
+	// 	}
+
+	// 	if new_fd == -1 {
+	// 		new_fd = fd_manager.len() as isize;
+	// 	}
+
+	// 	fd_manager.fd_array.push(FileDescriptor {
+	// 		readable: file_descriptor.readable,
+	// 		writable: file_descriptor.writable,
+	// 		open_file: open_file,
+	// 	});
+	// 	new_fd
+	// }
 
 	// SYSCALL_DUP3 => sys_dup3(args[0] as isize, args[1] as isize, args[2] as isize),
 
-	pub fn sys_dup3(&self, fd: isize, new_fd: isize, flags: isize) -> isize {
-		let fd = fd as usize;
-		let new_fd = new_fd as usize;
-		let flags = flags as usize;
-		let mut task = self.proc.inner.lock();
-		let mut fd_manager = &mut task.fd_manager;
-		if fd >= fd_manager.len() {
-			return -1;
-		}
+	// pub fn sys_dup3(&self, fd: isize, new_fd: isize, flags: isize) -> isize {
+	// 	let fd = fd as usize;
+	// 	let new_fd = new_fd as usize;
+	// 	let flags = flags as usize;
+	// 	let mut task = self.proc.inner.lock();
+	// 	let mut fd_manager = &mut task.fd_manager;
+	// 	if fd >= fd_manager.len() {
+	// 		return -1;
+	// 	}
 
-		let file_descriptor = &fd_manager.fd_array[fd].clone();
-		if !file_descriptor.readable && !file_descriptor.writable {
-			return -1;
-		}
+	// 	let file_descriptor = &fd_manager.fd_array[fd].clone();
+	// 	if !file_descriptor.readable && !file_descriptor.writable {
+	// 		return -1;
+	// 	}
 
-		let open_file = file_descriptor.open_file.clone();
-		let inode = open_file.lock().inode.clone();
+	// 	let open_file = file_descriptor.open_file.clone();
+	// 	let inode = open_file.lock().inode.clone();
 
-		if new_fd >= fd_manager.len() {
-			for _ in fd_manager.len()..new_fd + 1 {
-				fd_manager.fd_array.push(FileDescriptor {
-					readable: false,
-					writable: false,
-					open_file: Arc::new(Mutex::new(OpenFile::new())),
-				});
-			}
-		}
-		fd_manager.fd_array[new_fd] = FileDescriptor {
-			readable: file_descriptor.readable,
-			writable: file_descriptor.writable,
-			open_file: open_file,
-		};
-		new_fd as isize
-	}
+	// 	if new_fd >= fd_manager.len() {
+	// 		for _ in fd_manager.len()..new_fd + 1 {
+	// 			fd_manager.fd_array.push(FileDescriptor {
+	// 				readable: false,
+	// 				writable: false,
+	// 				open_file: Arc::new(Mutex::new(OpenFile::new())),
+	// 			});
+	// 		}
+	// 	}
+	// 	fd_manager.fd_array[new_fd] = FileDescriptor {
+	// 		readable: file_descriptor.readable,
+	// 		writable: file_descriptor.writable,
+	// 		open_file: open_file,
+	// 	};
+	// 	new_fd as isize
+	// }
 
 
 	pub fn sys_mkdirat(&self, fd: isize, path: usize, mode: usize) -> isize {
@@ -491,7 +492,7 @@ impl Thread{
 		//     return -1;
 		// }
 
-		let open_file = file_descriptor.open_file.clone();
+		let open_file = file_descriptor.clone();
 		let inode = open_file.lock().inode.clone();
 
 		let mut path_iter = path.split('/');
@@ -559,14 +560,9 @@ impl Thread{
 			return -1;
 		}
 
-		let file_descriptor = &fd_manager.fd_array[fd].clone();
-		if !file_descriptor.readable {
-			return -1;
-		}
 		let mut stat = Stat::new();
 
 		stat.st_size = fd_manager.fd_array[fd]
-			.open_file
 			.lock()
 			.inode
 			.lock()
@@ -653,11 +649,14 @@ impl Thread{
 	pub fn sys_pipe2(&self, pipe: *mut u32) -> isize {
 		let fd_manager = &mut self.proc.inner.lock().fd_manager;
 
-		let read_fd = fd_manager.alloc_fd(true, false);
-		let write_fd = fd_manager.alloc_fd(false, true);
+		let pipe_inode=Arc::new(Mutex::new(PipeINode::new_pipe()));
 
-		fd_manager.fd_array[read_fd].open_file = Arc::new(Mutex::new(OpenFile::new_pipe()));
-		fd_manager.fd_array[write_fd].open_file = fd_manager.fd_array[read_fd].open_file.clone();
+		let read_fd=fd_manager.push(
+			Arc::new(Mutex::new(OpenFile::new_from_inode(true,false,pipe_inode.clone())))
+		);
+		let write_fd = fd_manager.push(
+			Arc::new(Mutex::new(OpenFile::new_from_inode(false,true,pipe_inode.clone())))
+		);
 
 		unsafe {
 			*pipe = read_fd as u32;

@@ -1,3 +1,5 @@
+use core::panic;
+
 use block_device::BlockDevice;
 use crate::bpb::BIOSParameterBlock;
 use crate::directory_item::DirectoryItem;
@@ -83,6 +85,22 @@ impl<'a, T> Dir<'a, T>
                 Err(DirError::NoMatchFile)
             }
         }
+    }
+	pub fn open_file_from_dentry(&self, di: DirectoryItem) -> Result<File<'a, T>, DirError> {
+		if di.is_file() {
+			let fat = FAT::new(di.cluster(),
+								self.device,
+								self.bpb.fat1());
+			Ok(File::<T> {
+				device: self.device,
+				bpb: self.bpb,
+				dir_cluster: self.detail.cluster(),
+				detail: di,
+				fat,
+			})
+		}else{
+			Err(DirError::NoMatchFile)
+		}
     }
 
     /// Cd Dir, Return Dir<T> Type

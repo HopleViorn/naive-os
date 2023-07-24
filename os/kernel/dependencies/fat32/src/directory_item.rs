@@ -2,7 +2,7 @@ use core::str;
 use crate::tool::read_le_u32;
 use crate::dir::OpType;
 
-pub(crate) enum NameType {
+pub enum NameType {
     SFN,
     LFN,
 }
@@ -304,13 +304,13 @@ impl LongDirectoryItem {
 
 #[derive(Default, Copy, Clone, Debug)]
 pub struct DirectoryItem {
-    pub(crate) item_type: ItemType,
+    pub item_type: ItemType,
     pub sfn: Option<ShortDirectoryItem>,
     pub lfn: Option<LongDirectoryItem>,
 }
 
 impl DirectoryItem {
-    pub(crate) fn cluster(&self) -> u32 {
+    pub fn cluster(&self) -> u32 {
         self.sfn.unwrap().cluster
     }
 
@@ -330,7 +330,7 @@ impl DirectoryItem {
         }
     }
 
-    pub(crate) fn count_of_name(&self) -> Option<usize> {
+    pub fn count_of_name(&self) -> Option<usize> {
         if self.lfn.is_some() {
             Some(self.lfn.as_ref().unwrap().count_of_name())
         } else {
@@ -338,7 +338,7 @@ impl DirectoryItem {
         }
     }
 
-    pub(crate) fn is_name_end(&self) -> Option<bool> {
+    pub fn is_name_end(&self) -> Option<bool> {
         if self.lfn.is_some() {
             Some(self.lfn.as_ref().unwrap().is_name_end())
         } else {
@@ -346,7 +346,7 @@ impl DirectoryItem {
         }
     }
 
-    pub(crate) fn length(&self) -> Option<usize> {
+    pub fn length(&self) -> Option<usize> {
         if self.sfn.is_some() {
             Some(self.sfn.as_ref().unwrap().length as usize)
         } else {
@@ -354,7 +354,7 @@ impl DirectoryItem {
         }
     }
 
-    pub(crate) fn bytes(&self) -> [u8; 32] {
+    pub fn bytes(&self) -> [u8; 32] {
         if self.sfn.is_some() {
             self.sfn.as_ref().unwrap().bytes(self.item_type)
         } else {
@@ -362,7 +362,7 @@ impl DirectoryItem {
         }
     }
 
-    pub(crate) fn new_lfn(attribute: u8, check_sum: u8, value: &str) -> Self {
+    pub fn new_lfn(attribute: u8, check_sum: u8, value: &str) -> Self {
         Self {
             item_type: ItemType::LFN,
             sfn: None,
@@ -370,7 +370,7 @@ impl DirectoryItem {
         }
     }
 
-    pub(crate) fn new_sfn(cluster: u32, value: &str, create_type: OpType) -> Self {
+    pub fn new_sfn(cluster: u32, value: &str, create_type: OpType) -> Self {
         Self {
             item_type: ItemType::from_create(create_type),
             sfn: Some(ShortDirectoryItem::new(cluster, value, create_type)),
@@ -378,7 +378,7 @@ impl DirectoryItem {
         }
     }
 
-    pub(crate) fn new_sfn_bytes(cluster: u32, value: &[u8], create_type: OpType) -> Self {
+    pub fn new_sfn_bytes(cluster: u32, value: &[u8], create_type: OpType) -> Self {
         Self {
             item_type: ItemType::from_create(create_type),
             sfn: Some(ShortDirectoryItem::new_bytes(cluster, value, create_type)),
@@ -386,14 +386,14 @@ impl DirectoryItem {
         }
     }
 
-    pub(crate) fn root_dir(cluster: u32) -> Self {
+    pub fn root_dir(cluster: u32) -> Self {
         Self {
             sfn: Some(ShortDirectoryItem::root_dir(cluster)),
             ..Self::default()
         }
     }
 
-    pub(crate) fn from_buf(buf: &[u8]) -> Self {
+    pub fn from_buf(buf: &[u8]) -> Self {
         let item_type = if buf[0x00] == 0xE5 {
             ItemType::Deleted
         } else {
@@ -418,7 +418,7 @@ impl DirectoryItem {
         }
     }
 
-    pub(crate) fn sfn_equal(&self, value: &str) -> bool {
+    pub fn sfn_equal(&self, value: &str) -> bool {
         if self.is_deleted() { return false; }
         let option = self.get_sfn();
         if option.is_none() { return false; }
@@ -430,7 +430,7 @@ impl DirectoryItem {
         }
     }
 
-    pub(crate) fn lfn_equal(&self, value: &str) -> bool {
+    pub fn lfn_equal(&self, value: &str) -> bool {
         if self.is_deleted() { return false; }
         let option = self.get_lfn();
         if option.is_none() { return false; }
@@ -442,23 +442,23 @@ impl DirectoryItem {
         }
     }
 
-    pub(crate) fn set_file_length(&mut self, length: usize) {
+    pub fn set_file_length(&mut self, length: usize) {
         self.sfn.as_mut().unwrap().length = length as u32;
     }
 
-    pub(crate) fn is_lfn(&self) -> bool {
+    pub fn is_lfn(&self) -> bool {
         ItemType::LFN == self.item_type
     }
 
-    pub(crate) fn is_deleted(&self) -> bool {
+    pub fn is_deleted(&self) -> bool {
         ItemType::Deleted == self.item_type
     }
 
-    pub(crate) fn is_dir(&self) -> bool {
+    pub fn is_dir(&self) -> bool {
         ItemType::Dir == self.item_type
     }
 
-    pub(crate) fn is_file(&self) -> bool {
+    pub fn is_file(&self) -> bool {
         ItemType::File == self.item_type
     }
 }

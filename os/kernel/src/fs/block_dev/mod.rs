@@ -6,8 +6,8 @@ use lazy_static::__Deref;
 use spin::Mutex;
 
 mod block_device;
-mod virtio_block;
-use crate::fs::block_dev::virtio_block::{VirtIOBlock, Nulcear};
+pub mod virtio_block;
+use crate::fs::block_dev::virtio_block::{VirtIOBlock, Nuclear};
 
 use ::block_device::BlockDevice;
 
@@ -18,9 +18,14 @@ lazy_static::lazy_static! {
 lazy_static::lazy_static!{
 	pub static ref buf:Arc<Mutex<[u8;512<<8]>>=Arc::new(Mutex::new([0;512<<8]));
 }
+
+pub fn init_block_dev(){
+	let x=BLOCK_DEVICE.clone();
+}
+
 #[allow(unused)]
 pub fn block_device_test() {
-	let x=Volume::new(Nulcear {});
+	let x=Volume::new(Nuclear {});
 	let root=x.root_dir();
 
 	for item in root.iter(){
@@ -49,6 +54,7 @@ pub fn block_device_test() {
 			}			
 		}
 		else if let Some(long)=item.lfn{
+
 		}
 	}
     println!("block device test passed!");

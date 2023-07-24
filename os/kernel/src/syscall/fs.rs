@@ -4,9 +4,9 @@ use core::{
     fmt::write,
     mem::{align_of, size_of},
     ops::{Add, DerefMut},
-    slice,
+    slice, panic,
 };
-
+use crate::fs::block_dev::virtio_block::{VirtIOBlock, Nuclear};
 use crate::{console::print, mm::{page_table::{copy_out, translate_str}, MemorySet, memory_set}, task::Thread};
 use alloc::{
     format,
@@ -14,6 +14,7 @@ use alloc::{
     sync::Arc,
     vec::Vec, boxed::Box,
 };
+use fat32::{volume::Volume, dir::{Dir, DirError}, directory_item::ItemType};
 use riscv::paging::Entries;
 use spin::Mutex;
 
@@ -76,19 +77,20 @@ impl Thread{
 			};
 		}
 		// let start_dir_path = if path == "./text.txt" {
-		//     // println!("Hi, this is a text file.");
-		//     // println!("syscalls testing success!");
-		//     // println!("");
-		//     // println!("");
-		//     "/mnt/".to_string()
-		// } else {
-		//     "/".to_string()
+			//     // println!("Hi, this is a text file.");
+			//     // println!("syscalls testing success!");
+			//     // println!("");
+			//     // println!("");
+			//     "/mnt/".to_string()
+			// } else {
+				//     "/".to_string()
 		// };
 		// println!(
-		//     "openat: start_dir_path: {}, rel_path: {}",
-		//     start_dir_path, rel_path
-		// ); // TODO: fix incorrect start_dir_path
+			//     "openat: start_dir_path: {}, rel_path: {}",
+			//     start_dir_path, rel_path
+			// ); // TODO: fix incorrect start_dir_path
 		let abs_path = format!("{}{}", start_dir_path, rel_path);
+		// println!("[openat] path={}",abs_path);
 		let fd;
 		// println!("!!!{}",abs_path);
 		let inode = match global_dentry_cache.get(&abs_path) {
@@ -217,7 +219,80 @@ impl Thread{
 		0
 	}
 
+	fn full_search_mount(dir:Dir<'_,Nuclear>, mut path:String){
+		for item in dir.iter(){
+			match(item.item_type){
+				ItemType::LFN=>{
+					let (name,len)=item.get_lfn().unwrap();
+					let name=core::str::from_utf8(&name).unwrap().to_string();
+					let file=dir.open_file(&name[..len]);
+					if let Ok(file)=file{
+						// println!("file size:{}",file.length());
+						let mut file_path=path.clone();
+						file_path.push_str(&name[..len]);
+						println!("[mount] find file {}",file_path);
+						// println!("path:{},file_path:{}",path,file_path);
+
+						let inode = Arc::new(Mutex::new(RegFileINode::new(
+							path.clone(),
+							name.clone(),
+							OpenFlags::CREATE,
+							true,
+							true,
+						)));
+
+						{
+							let inode_content=&mut inode.lock().file;
+							inode_content.resize(file.length(), 0);
+							if file.length()>0 {
+								file.read(inode_content.as_mut_slice());
+							}else{
+								// println!("empty file.");
+							}
+						}
+						global_dentry_cache.insert(&file_path, inode);
+
+						// let buf=inode_content;
+						// let mut nxx=0;
+						// let mut tt=0;
+						// for c in buf{
+						// 	print!("{:02x}",c);
+						// 	nxx+=1;
+						// 	if nxx==16{
+						// 		nxx=0;
+						// 		println!("");
+						// 	}
+						// 	tt+=1;
+						// 	if(tt==16*16){
+						// 		break;
+						// 	}
+						// }	
+					}else{
+						let new_dir=dir.cd(&name[..len]);
+						if let Ok(new_dir)=new_dir{
+							let mut new_path=path.clone();
+							new_path.push_str(&name);
+							new_path.push('/');
+							Thread::full_search_mount(new_dir,new_path);
+						}else{
+							panic!("!");
+						}
+					}
+				}
+				ItemType::Dir=>{
+				}
+				_=>{
+					;
+				}
+			}
+		}
+	}
+
 	pub fn sys_mount(&self) -> isize {
+		let volume=Volume::new(Nuclear{});
+		let root_dir=volume.root_dir();
+		Thread::full_search_mount(root_dir,"/".to_string());
+		return 0;
 		let nuclear = include_bytes!("../../../testbin/text.txt");
 		let inode = Arc::new(Mutex::new(RegFileINode::new(
 			"/".to_string(),

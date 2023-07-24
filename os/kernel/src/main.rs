@@ -34,7 +34,7 @@ mod task;
 pub mod syscall;
 pub mod timer;
 pub mod trap;
-use crate::fs::block_dev::block_device_test;
+use crate::fs::block_dev::{block_device_test, init_block_dev};
 use crate::mm::memory_set::{MapArea, MapPermission, MapType};
 use crate::mm::VirtAddr;
 use crate::task::{TASK_QUEUE, Thread, PID_ALLOCATOR, Process};
@@ -74,14 +74,6 @@ use riscv::register::{
 
 global_asm!(include_str!("entry.asm"));
 global_asm!(include_str!("user_bin.S"));
-
-
-
-
-// lazy_static!{
-// 	static ref pid_top:Arc<Mutex<usize>>=Arc::new(Mutex::new(0));
-// }
-
 
 fn crate_task_from_elf(userbin: &[u8]) {
     // let userbin=include_bytes!("../../../testsuits-for-oskernel/riscv-syscalls-testing/user/build/riscv64/write");
@@ -137,12 +129,6 @@ fn load_init() {
 		fn busybox_start();
         fn busybox_end();
     }
-	// unsafe{
-	// 	crate_task_from_elf(slice::from_raw_parts(
-	// 		forktest_start as *const u8,
-	// 		forktest_end as usize - forktest_start as usize,
-	// 	));
-	// }
 	unsafe{
 		crate_task_from_elf(slice::from_raw_parts(
 			init_start as *const u8,
@@ -213,6 +199,7 @@ pub fn rust_main(hart_id:usize) -> ! {
 		clear_bss();
 		mm::init();
 		trap::init();
+		init_block_dev();
 		// unsafe {sie::set_stimer();}
 		load_init();
 		smp_v!(true => INIT_START);
@@ -222,6 +209,7 @@ pub fn rust_main(hart_id:usize) -> ! {
 		KERNEL_SPACE.lock().activate();
 		trap::init();
 	}
+	//enter userloop
 	loop{
 		if let Some(runnable)=TASK_QUEUE.fetch(){
 			// println!("hart_id:{}",hart_id);

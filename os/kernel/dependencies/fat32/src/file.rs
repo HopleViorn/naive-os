@@ -48,6 +48,9 @@ impl<'a, T> File<'a, T>
     where T: BlockDevice + Clone + Copy,
           <T as BlockDevice>::Error: core::fmt::Debug {
     /// Read File To Buffer, Return File Length
+	pub fn length(&self)-> usize{
+		self.detail.length().unwrap()
+	}
     pub fn read(&self, buf: &mut [u8]) -> Result<usize, FileError> {
         let length = self.detail.length().unwrap();
         let spc = self.bpb.sector_per_cluster_usize();

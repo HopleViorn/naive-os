@@ -20,7 +20,6 @@ lazy_static! {
     static ref QUEUE_FRAMES: Mutex<Vec<FrameTracker>> = Mutex::new(Vec::new());
 }
 
-
 impl BlockDevice for VirtIOBlock {
     fn read_block(&self, block_id: usize, buf: &mut [u8]) {
         self.0
@@ -37,9 +36,9 @@ impl BlockDevice for VirtIOBlock {
 }
 
 #[derive(Copy,Clone)]
-pub struct Nulcear;
+pub struct Nuclear;
 
-impl ::block_device::BlockDevice for Nulcear{
+impl ::block_device::BlockDevice for Nuclear{
 	type Error = usize;
 	fn read(
         &self,
@@ -56,15 +55,14 @@ impl ::block_device::BlockDevice for Nulcear{
 		}
 		Ok(())
 	}   
-	fn write(&self, buf: &[u8], address: usize, number_of_blocks: usize)
-        -> Result<(), Self::Error>{
-			let mut i=0;
+	fn write(&self, buf: &[u8], address: usize, number_of_blocks: usize) -> Result<(), Self::Error>{
+		let mut i=0;
 		for chunk in buf.chunks(512){
 			BLOCK_DEVICE.write_block(address/512+i,chunk);
 			i+=1;
 		}
-			Ok(())
-		}
+		Ok(())
+	}
 }
 
 

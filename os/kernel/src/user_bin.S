@@ -2,7 +2,7 @@
 	.section .data
 	.globl _app_num
 _app_num:
-	.quad 40
+	.quad 39
 	.quad init_start
 	.quad shell_start
 	.quad forktest_start
@@ -42,8 +42,7 @@ _app_num:
 	.quad mmap_start
 	.quad munmap_start
 	.quad busybox_start
-	.quad busybox_debug_start
-	.quad busybox_debug_end
+	.quad busybox_end
 
 	.globl _app_names
 _app_names:
@@ -86,7 +85,6 @@ _app_names:
 	.string "mmap"
 	.string "munmap"
 	.string "busybox"
-	.string "busybox_debug"
 
 	.section .data
 	.global init_start
@@ -365,11 +363,4 @@ munmap_end:
 busybox_start:
 	.incbin "../testbin/busybox"
 busybox_end:
-
-	.global busybox_debug_start
-	.global busybox_debug_end
-	.align 3
-busybox_debug_start:
-	.incbin "../testbin/busybox_debug"
-busybox_debug_end:
 

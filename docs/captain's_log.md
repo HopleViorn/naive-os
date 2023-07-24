@@ -1,4 +1,4 @@
-## On Supporting GLIBC
+## On Supporting MUSL LIBC
 ### 1:6/28
 Glibc can't load value from specific memory location.
 
@@ -13,7 +13,12 @@ Glibc requires passing arguments by order as argc, argv, env, auxvec. We do not 
 #### 3:6/28
 Page fault occurs after a brk syscall.
 #### Analysis
-brk() is not implemented correctly. After fix brk the page fault did not occur.
+brk() is not implemented correctly. After fixing brk the page fault did not occur.
+
+#### 4:7/24
+Musl Alloc/Free not performing well.
+#### Analysis
+Encountered the same problem FTL meets. FTL's debugging log really helps. It is the matter with auxvec AT_PAGESIZE(you again).
 
 ## On Supporing Multi-Core
 ### 1:6/29

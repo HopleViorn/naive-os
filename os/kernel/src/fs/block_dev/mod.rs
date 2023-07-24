@@ -50,7 +50,6 @@ pub fn block_device_test() {
 		}
 		else if let Some(long)=item.lfn{
 		}
-
 	}
     println!("block device test passed!");
 }

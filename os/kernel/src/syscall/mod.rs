@@ -28,10 +28,12 @@ const SYSCALL_READV: usize = 65;
 const SYSCALL_WRITEV: usize = 66;
 const SYSCALL_FSTAT: usize = 80;
 const SYSCALL_EXIT: usize = 93;
+const SYSCALL_EXIT_GROUP: usize = 94;
 const SYSCALL_SET_TID_ADDRESS: usize = 96;
 const SYSCALL_SET_ROBUST_LIST: usize = 99;
 const SYSCALL_GET_ROBUST_LIST: usize = 100;
 const SYSCALL_NANOSLEEP: usize = 101;
+const SYSCALL_CLOCK_GETTIME:usize = 113;
 const SYSCALL_SCHED_YIELD: usize = 124;
 const SYSCALL_TGKILL: usize = 131;
 const SYSCALL_SIGACTION: usize = 134;
@@ -73,7 +75,7 @@ use crate::{
         page_table::{translate_str, PageTable},
         VirtAddr,
     },
-    task::{PCB, proc, Thread},
+    task::{PCB, proc, Thread}, trap::TrapFrame,
 };
 
 #[repr(C)]
@@ -81,7 +83,6 @@ pub struct timespec {
     tv_sec: usize,
     tv_nsec: usize,
 }
-
 
 /// handle syscall exception with `syscall_id` and other arguments
 
@@ -93,12 +94,26 @@ impl Thread{
 			.unwrap()
 			.get_mut() as *mut u8 as usize
 	}
+	pub fn stack_trace(&self){
+		let pcb = self.proc.inner.lock();
+		let mut cx: &mut TrapFrame = pcb.trapframe_ppn.get_mut();
+		let fp=cx.x[8];
+		println!("fp:{:#x}",fp);
+		if(fp>0){
+			unsafe{
+				println!("ra:{:#x}",*(self.translate(fp) as *const usize));
+				println!("fp:{:#x}",*((self.translate(fp) + 8) as *const usize));
+			}
+		}
+	}
 	pub async unsafe fn syscall(& self, syscall_id: usize, args: [usize; 6]) -> isize {
-		println!("[syscall] id={}",syscall_id);
+		// println!("[syscall] id={}",syscall_id);
+		// self.stack_trace();
 		let result = match syscall_id {
 			SYSCALL_WRITE => self.sys_write(args[0], args[1] as *const u8, args[2]),
 			SYSCALL_WRITEV => self.sys_writev(args[0], self.translate(args[1]) as *const usize, args[2]),
 			SYSCALL_EXIT =>  self.sys_exit(args[0] as i32),
+			SYSCALL_EXIT_GROUP =>  self.sys_exit(args[0] as i32),
 			SYSCALL_NANOSLEEP => Thread::sys_nanosleep(
 				self.translate(args[0]),
 				self.translate(args[1]),
@@ -106,6 +121,7 @@ impl Thread{
 			SYSCALL_READ => self.sys_read(args[0] as usize, args[1], args[2]).await,
 			SYSCALL_SCHED_YIELD => {Thread::async_yield().await;0},
 			SYSCALL_GETTIMEOFDAY => self.sys_gettimeofday(args[0] as *mut usize),
+			SYSCALL_CLOCK_GETTIME => self.sys_gettimeofday(args[1] as *mut usize),
 			SYSCALL_GETPID => self.sys_getpid(),
 			SYSCALL_GETPPID => self.sys_getppid(),
 			SYSCALL_CLONE => self.sys_clone(args[1]),

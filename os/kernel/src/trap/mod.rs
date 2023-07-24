@@ -41,8 +41,12 @@ pub fn trap_from_kernel() ->! {
 #[no_mangle]
 pub fn set_kernel_trap() {
 	unsafe{
-		stvec::write(trap_from_kernel as usize, TrapMode::Direct);
-		asm!("fence");
+		extern "C" {
+			pub fn __kernel_trap_entry();
+			pub fn __alltraps();
+		}
+		println!("kernel_trap_entry {:#x}",trap_from_kernel as usize);
+		stvec::write( TRAMPOLINE + __kernel_trap_entry as usize - __alltraps as usize, TrapMode::Direct);
 	}
 }
 #[no_mangle]
@@ -62,7 +66,6 @@ pub async unsafe fn user_loop(thread: Arc<Thread>){
 	loop{
 		let user_satp={
 			let mut pcb=thread.proc.inner.lock();
-			set_user_trap();
 			pcb.ktime +=get_time_ms() - pcb.otime;
 			pcb.otime = get_time_ms();
 			
@@ -77,6 +80,9 @@ pub async unsafe fn user_loop(thread: Arc<Thread>){
 		let restore_va = __restore as usize - __alltraps as usize + TRAMPOLINE;
 		let mut cx=ProcessContext::new();
 		
+		// set_kernel_trap();
+		set_user_trap();
+		// set_user_trap();
 		asm!(
 			"fence.i",
 			"jalr {restore_va}",             // jump to new addr of __restore asm function
@@ -85,8 +91,6 @@ pub async unsafe fn user_loop(thread: Arc<Thread>){
 			in("a1") user_satp,        // a1 = phy addr of usr page table
 		);
 		
-		
-		set_kernel_trap();
 		{
 			let mut pcb=thread.proc.inner.lock();
 			// println!("USER TRAP: stval={:#x}",stval);
@@ -105,10 +109,9 @@ pub async unsafe fn user_loop(thread: Arc<Thread>){
 					.trapframe_ppn
 					.get_mut();
 					cx.sepc += 4;
-					println!("sepc={:#x}",cx.sepc);
+					// println!("sepc={:#x}",cx.sepc);
 					cx
 				};
-			// println!("[syscall] id= {}",cx.x[17]);
 			let result = thread.syscall(
 				cx.x[17],
 					[cx.x[10], cx.x[11], cx.x[12], cx.x[13], cx.x[14], cx.x[15]],

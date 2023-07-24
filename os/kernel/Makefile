@@ -22,8 +22,8 @@ build:
 binary:build 
 	$(OBJCOPY)  $(ELF) --strip-all -O binary $(patsubst $(TARGET_DIR)/%, $(TARGET_DIR)/%.bin, $(ELF))
 asm:
-	$(OBJDUMP) -D $(ELF) > debug/os.asm
-	$(OBJDUMP) -D ../testbin/busybox_unstripped > debug/busybox.asm
+	$(OBJDUMP) -D $(ELF) > ../../debug/os.asm
+	$(OBJDUMP) -D ../testbin/busybox_unstripped > ../../debug/busybox.asm
 
 run: userbin binary
 	qemu-system-riscv64 \

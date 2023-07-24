@@ -30,7 +30,6 @@ mod mm;
 mod sbi;
 mod sync;
 mod task;
-mod xdebug;
 
 pub mod syscall;
 pub mod timer;

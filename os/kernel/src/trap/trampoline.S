@@ -8,6 +8,7 @@
     .section .text.trampoline
     .globl __alltraps
     .globl __restore
+	.globl __kernel_trap_entry
     .align 2
 __alltraps:
     csrrw sp, sscratch, sp

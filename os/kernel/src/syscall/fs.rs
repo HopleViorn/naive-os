@@ -178,6 +178,7 @@ impl Thread{
 
 	/// write `buf` of length `len`  to a file with `fd`
 	pub fn sys_write(&self, fd: usize, buf: *const u8, len: usize) -> isize {
+		
 		let task = &mut self.proc.inner.lock();
 		let fd_manager = &task.fd_manager;
 		let fde = &fd_manager.fd_array[fd];
@@ -186,6 +187,7 @@ impl Thread{
 		}
 		let buffers = translated_byte_buffer(task.memory_set.token(), buf, len);
 		let mut sum = 0;
+		
 		for buffer in buffers {
 			let mut open_file = fde.open_file.lock();
 			let write_in = open_file

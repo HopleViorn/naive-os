@@ -43,7 +43,8 @@ char* testsuits_name[]={
 	"pipe",
 	"mmap",
 	"munmap",
-	"busybox"
+	"busybox",
+	"busybox_debug",
 };
 
 signed main(){

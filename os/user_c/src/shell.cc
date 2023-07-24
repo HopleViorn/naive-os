@@ -46,6 +46,17 @@ signed main() {
 		}
 		int pid = fork();
 		if(pid == 0) {
+			char *cc=buf;
+			int argc=0;
+			argv[0]=buf;
+			while(*cc){
+				if(*cc==' '){
+					*cc=0;
+					argv[++argc]=cc+1;
+				}
+				cc++;
+			}
+			argv[++argc]=0;
 			execve(buf, argv, 0);
 		} else {
 			int status;

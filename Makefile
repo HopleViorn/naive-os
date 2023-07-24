@@ -69,6 +69,9 @@ sdebug: all
 
 gdb:
 	riscv64-unknown-elf-gdb \
-    -ex 'file /home/max/os/naive-os/os/kernel/target/riscv64gc-unknown-none-elf/release/os' \
+    -ex 'file /home/max/os/naive-os/os/testbin/busybox_debug' \
     -ex 'set arch riscv:rv64' \
     -ex 'target remote localhost:12345'
+
+    # -ex 'file /home/max/os/naive-os/os/testbin/busybox_unstripped' \
+	# -ex 'file /home/max/os/naive-os/os/kernel/target/riscv64gc-unknown-none-elf/release/os' \

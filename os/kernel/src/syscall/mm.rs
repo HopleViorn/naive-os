@@ -1,6 +1,6 @@
 use core::{ops::DerefMut, panic};
 
-use alloc::task;
+use alloc::{task, borrow::ToOwned};
 use lazy_static::__Deref;
 use riscv::register::mstatus;
 
@@ -59,13 +59,18 @@ impl Thread{
 	pub fn sys_mmap(&self, start: usize, len: usize, prot: i32, flag: i32, fd: usize, off: usize) -> isize {
 		let mut pcb = self.proc.inner.lock();
 		let mut pcb=pcb.deref_mut();
+
 		let startva = if start == 0 {
-			pcb.heap_pos.ceil().0
+			pcb.heap_pos.ceil_align().0
 		} else {
 			start
 		};
-		pcb.heap_pos=(startva+len).into();
+		
 		if fd==usize::MAX {
+			if(start>0 &&start<=pcb.heap_pos.ceil_align().0){
+				return startva as isize;
+			}
+			let len=len.max(PAGE_SIZE);
 			pcb.memory_set.push(
 				MapArea::new(
 					startva.into(),
@@ -74,6 +79,7 @@ impl Thread{
 					MapPermission::R | MapPermission::W | MapPermission::U,
 				),None
 			);
+			pcb.heap_pos=(startva+len).into();
 		}else{
 			pcb.memory_set.push(
 				MapArea::new(
@@ -92,6 +98,7 @@ impl Thread{
 						.as_slice()
 				)
 			);
+			pcb.heap_pos=(startva+len).into();
 		}
 		return startva as isize;
 	}

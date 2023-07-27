@@ -201,8 +201,8 @@ impl MemorySet {
         // // guard page
         // user_stack_bottom += PAGE_SIZE;
         // let user_stack_top = user_stack_bottom + USER_STACK_SIZE;
-        let user_stack_top=TRAPFRAME;
-        let user_stack_bottom=user_stack_top-USER_STACK_SIZE;
+        let user_stack_top=TRAPFRAME-USER_STACK_SIZE*16;
+        let user_stack_bottom=user_stack_top-USER_STACK_SIZE*17;
         memory_set.push(
             MapArea::new(
                 user_stack_bottom.into(),

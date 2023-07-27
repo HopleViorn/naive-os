@@ -60,7 +60,7 @@ pub fn set_user_trap() {
 pub async unsafe fn user_loop(thread: Arc<Thread>){
 	{
 		let mut pcb=thread.proc.inner.lock();
-		println!("[New Thread] pid={},spec={:#x},sp={:#x}",pcb.pid,(*(pcb.trapframe_ppn.get_mut() as *mut TrapFrame)).sepc,(*(pcb.trapframe_ppn.get_mut() as *mut TrapFrame)).x[2]);
+		// println!("[New Thread] pid={},spec={:#x},sp={:#x}",pcb.pid,(*(pcb.trapframe_ppn.get_mut() as *mut TrapFrame)).sepc,(*(pcb.trapframe_ppn.get_mut() as *mut TrapFrame)).x[2]);
 	}
 	
 	loop{

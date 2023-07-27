@@ -64,7 +64,7 @@ impl Thread{
 		.get_mut();
 		let ts = get_time_us();
 		*t = ts / 1000000;
-		*(t.add(1)) = ts % 1000000;
+		*(t.add(1)) = ts % 1000000*1000;
 		return 0;
 	}
 	pub async unsafe fn sys_nanosleep(req: usize, rem: usize) -> isize {

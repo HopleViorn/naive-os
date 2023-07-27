@@ -264,7 +264,9 @@ impl Thread{
 					let (name,len)=item.get_lfn().unwrap();
 					let name=core::str::from_utf8(&name).unwrap().to_string();
 					lfn_name=format!("{}{}",&name[..len],lfn_name);
+					// println!("<{}>:end:{}",lfn_name,item.is_name_end().unwrap());
 					drop(name);
+					// if !item.is_name_end().unwrap() { continue; }
 					let file=dir.open_file(&lfn_name);
 					let mut file_path=path.clone();
 					file_path.push_str(&lfn_name);
@@ -310,23 +312,33 @@ impl Thread{
 									// 		break;
 									// 	}
 									// }	
+						lfn_name=String::new();
+					}else{
+						//DIRc
+						let new_dir=dir.cd(&lfn_name);
+						if let Ok(new_dir)=new_dir{
+							let mut new_path=path.clone();
+							new_path.push_str(&lfn_name);
+							new_path.push('/');
+							Thread::full_search_mount(new_dir,new_path);
+							lfn_name=String::new();
+						}else{
+							// continue;
+							// panic!("Mount Exception.");
+							if !item.is_name_end().unwrap(){
 								lfn_name=String::new();
-								}else{
-									//DIRc
-									let new_dir=dir.cd(&lfn_name);
-									if let Ok(new_dir)=new_dir{
-										let mut new_path=path.clone();
-										new_path.push_str(&lfn_name);
-										new_path.push('/');
-										Thread::full_search_mount(new_dir,new_path);
-									}else{
-										continue;
-										// continue;
-										// panic!("Mount Exception.");
-									}
-								}
+							}else{
+								println!("failed on {}",&lfn_name);
 							}
+						}
+					}
+				}
 				ItemType::Dir=>{
+				}
+				ItemType::File=>{
+					let x=item.sfn.unwrap().name;
+					let x=core::str::from_utf8(&x).unwrap().to_string();
+					// println!("[mount] sfn {}",&x);
 				}
 				_=>{
 					;

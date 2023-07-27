@@ -80,7 +80,7 @@ impl Thread{
 				return startva as isize;
 			}
 			// let len=len.max(PAGE_SIZE);
-			println!("{:#x},{:#x},",startva,startva+len);
+			// println!("{:#x},{:#x},",startva,startva+len);
 			pcb.memory_set.push(
 				MapArea::new(
 					startva.into(),

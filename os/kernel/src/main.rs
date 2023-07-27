@@ -232,6 +232,7 @@ pub fn rust_main(hart_id:usize) -> ! {
 		println!("hart {} booting.",hart_id);
 		KERNEL_SPACE.lock().activate();
 		trap::init();
+        loop{}
 	}
 	//enter userloop
 	loop{

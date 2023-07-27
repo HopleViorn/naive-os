@@ -23,7 +23,10 @@ qemu: all
 	-m 128 \
     -bios sbi-qemu \
 	-kernel kernel-qemu \
-	-drive file=sdcard.img,format=raw,if=virtio
+	-drive file=sdcard.img,if=none,format=raw,id=x0  \
+	-device virtio-blk-device,drive=x0,bus=virtio-mmio-bus.0 \
+	-device virtio-net-device,netdev=net \
+	-netdev user,id=net
     # -device loader,file=kernel-qemu,addr=0x80200000
 
 single: all

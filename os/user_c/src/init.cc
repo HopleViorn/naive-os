@@ -11,9 +11,11 @@ signed main(){
 		// execve("write", argv, 0);
 		if(fork()==0){
 			execve("time-test", argv, 0);
+			exit(0);
 		}else{
 			int status;
-			waitpid(-1,&status,0);
+			int x=waitpid(-1,&status,0);
+			if(x<0) exit(-1);
 			execve("busybox", argv, 0);
 		}
 		// execve("busybox", argv, 0);

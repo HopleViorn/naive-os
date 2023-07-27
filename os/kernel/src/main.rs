@@ -222,16 +222,16 @@ pub fn rust_main(hart_id:usize) -> ! {
 		clear_bss();
 		mm::init();
 		trap::init();
+		KERNEL_SPACE.lock().activate();
 		init_block_dev();
 		// unsafe {sie::set_stimer();}
 		Thread::sys_mount();
 		load_core_program();
-		KERNEL_SPACE.lock().activate();
 		smp_v!(true => INIT_START);
 	}else{
 		smp_v!(INIT_START => true);
 		println!("hart {} booting.",hart_id);
-		trap::init();
+		// trap::init();
         loop{}
 	}
     println!("Mount Success.");

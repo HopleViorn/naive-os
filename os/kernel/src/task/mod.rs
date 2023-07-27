@@ -3,7 +3,7 @@ use crate::{
         file::{OpenFlags, PipeINode, RegFileINode, TerminalINode},
         vfs::{FileType, INode, Metadata, Timespec},
     },
-    mm::{PhysAddr, VirtAddr},
+    mm::{PhysAddr, VirtAddr}, config::PRINT_SYSCALL,
 };
 use alloc::{string::{String, ToString}, collections::{VecDeque, BTreeMap}, rc::Weak};
 use async_task::Runnable;
@@ -130,6 +130,15 @@ impl OpenFile {
             inode: inode,
         }
     }
+
+    pub fn set_close_on_exec(&mut self,flag:bool) -> isize{
+        if flag{
+            self.status_flags=1;
+        }else {
+            self.status_flags=0;
+        }
+        0
+    }
 }
 #[derive(Default)]
 pub struct GlobalOpenFileTable {
@@ -193,6 +202,7 @@ impl FdManager {
         self.fd_array.len()
     }
     pub fn close(&mut self, fd: usize) {
+		self.fd_array[fd]=Arc::new(Mutex::new(OpenFile::new()));
         // let fd: Option<&mut FileDescriptor> = self.fd_array.get_mut(fd);
         // if let Some(fd) = fd {
         //     if fd.readable || fd.writable {
@@ -201,6 +211,15 @@ impl FdManager {
         //     }
         //     fd.open_file = Arc::new(Mutex::new(OpenFile::new()));
         // }
+    }
+    pub fn close_on_exec(&mut self) {
+        let len=self.fd_array.len();
+        for i in 0..len{
+            if self.fd_array[i].lock().status_flags==1{
+                println!("[close_on_exec] fd={}",i);
+                self.fd_array[i]=Arc::new(Mutex::new(OpenFile::new()));
+            }
+        }
     }
     pub fn push(&mut self, open_file:Arc<Mutex<OpenFile>>) -> usize {
         self.fd_array.push(open_file);
@@ -218,13 +237,18 @@ impl FdManager {
 	pub fn dup(&mut self,fd:usize)->usize{
 		let open_file=self.get(fd).unwrap().clone();
 		self.fd_array.push(open_file);
+		if PRINT_SYSCALL {println!("[dup] {} {}",fd,self.fd_array.len()-1);}
 		self.fd_array.len()-1
 	}
 	pub fn dup3(&mut self,fd:usize,new_fd:usize)->usize{
-		//TODO
 		let open_file=self.get(fd).unwrap().clone();
-		self.fd_array.push(open_file);
-		self.fd_array.len()-1
+		while self.fd_array.len()<new_fd{
+			self.fd_array.push(Arc::new(Mutex::new(OpenFile::new())));
+		}
+		self.fd_array[new_fd]=open_file;
+		// self.fd_array.push(open_file);
+		// self.fd_array.len()-1
+		new_fd
 	}
 }
 #[derive(Default)]
@@ -393,5 +417,6 @@ impl Children {
 	pub fn turn_into_zombie(&mut self, pid:usize){
 		let proc=self.alive.get(&pid).unwrap().clone();
 		self.zombie.insert(pid, proc);
+		self.alive.remove(&pid);
 	}
 }

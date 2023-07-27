@@ -34,6 +34,7 @@ int mailread(void *buf, int len);
 int mailwrite(int pid, void *buf, int len);
 
 int fstat(int fd, struct kstat *st);
+int mount();
 int sys_linkat(int olddirfd, char *oldpath, int newdirfd, char *newpath, unsigned int flags);
 int sys_unlinkat(int dirfd, char *path, unsigned int flags);
 int link(char *old_path, char *new_path);

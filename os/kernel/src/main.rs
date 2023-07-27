@@ -9,6 +9,7 @@
 extern crate alloc;
 
 use alloc::collections::VecDeque;
+use alloc::string::ToString;
 use async_task::Runnable;
 use lazy_static::{lazy_static, __Deref};
 use spin::Mutex;
@@ -26,6 +27,7 @@ mod console;
 mod config;
 mod fs;
 mod lang_items;
+mod signal;
 mod mm;
 mod sbi;
 mod sync;
@@ -35,9 +37,10 @@ pub mod syscall;
 pub mod timer;
 pub mod trap;
 use crate::fs::block_dev::{block_device_test, init_block_dev};
+use crate::fs::file::{RegFileINode, OpenFlags};
 use crate::mm::memory_set::{MapArea, MapPermission, MapType};
 use crate::mm::VirtAddr;
-use crate::task::{TASK_QUEUE, Thread, PID_ALLOCATOR, Process};
+use crate::task::{TASK_QUEUE, Thread, PID_ALLOCATOR, Process, global_dentry_cache};
 use crate::trap::{user_loop, set_kernel_trap};
 use crate::{
     config::{KERNEL_STACK_SIZE, TRAMPOLINE, USER_STACK_SIZE},
@@ -83,7 +86,8 @@ fn crate_task_from_elf(userbin: &[u8]) {
 	let mut task=PCB::new();
 
     // let user_pagetable=&mut task.memory_set;
-    let (user_pagetable, user_stack, entry) = MemorySet::from_elf(&elf_file);
+    let (user_pagetable,heap_pos, user_stack, entry) = MemorySet::from_elf(&elf_file);
+    task.heap_pos=heap_pos.into();
     println!("entry:{:#x}", entry);
     KERNEL_SPACE.lock().insert_framed_area(
         (TRAMPOLINE - KERNEL_STACK_SIZE * (pid + 1)).into(),
@@ -120,16 +124,23 @@ fn crate_task_from_elf(userbin: &[u8]) {
 
 
 #[no_mangle]
-fn load_init() {
+fn load_core_program() {
     extern "C" {
         fn init_start();
         fn init_end();
-		fn forktest_start();
-        fn forktest_end();
-		fn busybox_start();
-        fn busybox_end();
+		fn shell_start();
+        fn shell_end();
     }
 	unsafe{
+		let inode=RegFileINode::new_from_existed(
+			"/core".to_string(),
+			"shell".to_string(),
+			OpenFlags::CREATE,
+			true,true,
+			slice::from_raw_parts(shell_start as *const u8, shell_end as usize - shell_start as usize)
+		);
+		let inode=Arc::new(Mutex::new(inode));
+		global_dentry_cache.insert("/core/shell",inode);
 		crate_task_from_elf(slice::from_raw_parts(
 			init_start as *const u8,
 			init_end as usize - init_start as usize,
@@ -201,7 +212,8 @@ pub fn rust_main(hart_id:usize) -> ! {
 		trap::init();
 		init_block_dev();
 		// unsafe {sie::set_stimer();}
-		load_init();
+		Thread::sys_mount();
+		load_core_program();
 		smp_v!(true => INIT_START);
 	}else{
 		smp_v!(INIT_START => true);
@@ -212,6 +224,7 @@ pub fn rust_main(hart_id:usize) -> ! {
 	//enter userloop
 	loop{
 		if let Some(runnable)=TASK_QUEUE.fetch(){
+			// println!("{}",TASK_QUEUE.len());
 			// println!("hart_id:{}",hart_id);
 			runnable.run();
 		}else{

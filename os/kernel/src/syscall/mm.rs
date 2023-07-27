@@ -1,16 +1,16 @@
 use core::{ops::DerefMut, panic};
 
-use alloc::{task, borrow::ToOwned};
+use alloc::{task, borrow::ToOwned, vec::Vec};
 use lazy_static::__Deref;
 use riscv::register::mstatus;
 
 use crate::{
-    config::{PAGE_SIZE, PAGE_SIZE_BITS},
+    config::{PAGE_SIZE, PAGE_SIZE_BITS, PRINT_SYSCALL},
     mm::{
         memory_set::{MapArea, MapType},
-        MapPermission, VirtAddr, VirtPageNum,
+        MapPermission, VirtAddr, VirtPageNum, page_table::PageTable,
     },
-    task::{Thread},
+    task::{Thread, FdManager},
 };
 
 impl Thread{
@@ -57,20 +57,28 @@ impl Thread{
 	}
 
 	pub fn sys_mmap(&self, start: usize, len: usize, prot: i32, flag: i32, fd: usize, off: usize) -> isize {
+		if PRINT_SYSCALL {println!("[mmap] start={:#x},len={:#x},fd={}",start,len,fd as isize);}
 		let mut pcb = self.proc.inner.lock();
 		let mut pcb=pcb.deref_mut();
-
+		
 		let startva = if start == 0 {
 			pcb.heap_pos.ceil_align().0
 		} else {
 			start
 		};
+		// let x=PageTable::from_token(pcb.memory_set.token());
+		// for area in &pcb.memory_set.areas{
+		// 	let a:usize=area.vpn_range.get_start().into();
+		// 	let b:usize=area.vpn_range.get_end().into();
+		// 	print!("[{:#x},{:#x}]",a,b);
+		// }
+		if PRINT_SYSCALL {println!("[mmap] startva={:#x}",startva);}
 		
 		if fd==usize::MAX {
 			if(start>0 &&start<=pcb.heap_pos.ceil_align().0){
 				return startva as isize;
 			}
-			let len=len.max(PAGE_SIZE);
+			// let len=len.max(PAGE_SIZE);
 			pcb.memory_set.push(
 				MapArea::new(
 					startva.into(),
@@ -95,19 +103,37 @@ impl Thread{
 						.lock()
 						.file_data()
 						.as_slice()
-				)
-			);
-			pcb.heap_pos=(startva+len).into();
+					)
+				);
+				pcb.heap_pos=(startva+len).into();
+			}
+			// println!("{:#x},{:#x}",startva,pcb.heap_pos.0);
+			return startva as isize;
 		}
-		return startva as isize;
-	}
+		
+		pub fn sys_munmap(start: *mut usize, len: usize) -> isize {
+			return 0;
+		}
+		pub fn sys_fcntl(&self, fd: usize, cmd: usize, arg :usize) -> isize{
+			if PRINT_SYSCALL{
+				println!("[fcntl] fd:{} cmd:{}",fd,cmd);
+			}
+			let mut pcb=self.proc.inner.lock();
+			let fd_manager=&mut pcb.fd_manager;
+			match cmd {
+				2=>{
+					fd_manager.fd_array[fd].lock().set_close_on_exec((arg &1)!=0)
+				}
+				//DUPFD_CLOEXEC
+				1030=>{
+					fd_manager.fd_array[fd].lock().set_close_on_exec((arg &1)!=0);
+					return fd_manager.dup(fd) as isize;
+				}
+				_=>{
+					return 0;
+				}
+			}
+		}
 
-	pub fn sys_munmap(start: *mut usize, len: usize) -> isize {
-		return 0;
-	}
-	pub fn sys_fcntl(&self, fd: usize, cmd: usize, arg :usize) -> isize{
-		println!("fd:{}",fd);
-		println!("cmd:{}",cmd);
-		0
-	}
+	
 }

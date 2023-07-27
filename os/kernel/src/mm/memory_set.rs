@@ -157,7 +157,7 @@ impl MemorySet {
     }
     /// Include sections in elf and trampoline and TrapFrame and user stack,
     /// also returns user_sp and entry point.
-    pub fn from_elf(elf: &ElfFile) -> (Self, usize, usize) {
+    pub fn from_elf(elf: &ElfFile) -> (Self, usize, usize, usize) {
         let mut memory_set = Self::new_bare();
         // map trampoline
         memory_set.map_trampoline();
@@ -196,10 +196,12 @@ impl MemorySet {
         }
         // map user stack with U flags
         let max_end_va: VirtAddr = max_end_vpn.into();
-        let mut user_stack_bottom: usize = max_end_va.into();
-        // guard page
-        user_stack_bottom += PAGE_SIZE;
-        let user_stack_top = user_stack_bottom + USER_STACK_SIZE;
+        // let mut user_stack_bottom: usize = max_end_va.into();
+        // // guard page
+        // user_stack_bottom += PAGE_SIZE;
+        // let user_stack_top = user_stack_bottom + USER_STACK_SIZE;
+        let user_stack_top=TRAPFRAME;
+        let user_stack_bottom=user_stack_top-USER_STACK_SIZE;
         memory_set.push(
             MapArea::new(
                 user_stack_bottom.into(),
@@ -209,16 +211,16 @@ impl MemorySet {
             ),
             None,
         );
-        // used in sbrk
-        memory_set.push(
-            MapArea::new(
-                user_stack_top.into(),
-                user_stack_top.into(),
-                MapType::Framed,
-                MapPermission::R | MapPermission::W | MapPermission::U,
-            ),
-            None,
-        );
+        // // used in sbrk
+        // memory_set.push(
+        //     MapArea::new(
+        //         user_stack_top.into(),
+        //         user_stack_top.into(),
+        //         MapType::Framed,
+        //         MapPermission::R | MapPermission::W | MapPermission::U,
+        //     ),
+        //     None,
+        // );
         // map TrapFrame
         memory_set.push(
             MapArea::new(
@@ -233,6 +235,7 @@ impl MemorySet {
 		let trapframe_ptr = TRAPFRAME;
         (
             memory_set,
+            max_end_va.into(),
             user_stack_top,
             elf.header.pt2.entry_point() as usize,
         )

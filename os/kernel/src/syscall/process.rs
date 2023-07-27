@@ -8,7 +8,7 @@ use alloc::{
     string::{String, ToString},
     sync::Arc,
     task,
-    vec::Vec,
+    vec::Vec, fmt::format, format,
 };
 use lazy_static::lazy_static;
 use xmas_elf::ElfFile;
@@ -17,8 +17,8 @@ use crate::{
     mm::{page_table::translate_str, translated_byte_buffer, MemorySet, VirtAddr, KERNEL_SPACE, MapPermission},
     sync::UPSafeCell,
     task::{
-         ProcessState, PCB, Thread, TASK_QUEUE, PID_ALLOCATOR, ProcessContext, Process,
-    }, config::{PAGE_SIZE, TRAPFRAME, TRAMPOLINE, KERNEL_STACK_SIZE}, trap::{TrapFrame, user_loop},
+         ProcessState, PCB, Thread, TASK_QUEUE, PID_ALLOCATOR, ProcessContext, Process, global_dentry_cache,
+    }, config::{PAGE_SIZE, TRAPFRAME, TRAMPOLINE, KERNEL_STACK_SIZE, PRINT_SYSCALL}, trap::{TrapFrame, user_loop},
 };
 
 use super::raw_ptr::{UserPtr, Out};
@@ -66,12 +66,17 @@ impl Thread{
 		let mut pcb =pcb.deref_mut();
 		let pid=pcb.pid;
 		let new_pid= PID_ALLOCATOR.alloc_pid();
+		if PRINT_SYSCALL {println!("[clone] pid:{} new_pid:{}",pid,new_pid);}
 
 		let mut new_pcb=PCB::new();
 		new_pcb.parent=Some(self.proc.clone());
 		new_pcb.fd_manager=pcb.fd_manager.clone();
+		// for fd in pcb.fd_manager.fd_array.clone(){
+		// 	new_pcb.fd_manager.push(fd);
+		// }
 		new_pcb.memory_set=MemorySet::from_existed_user(&pcb.memory_set);
-		new_pcb.heap_pos = VirtAddr::from(pcb.memory_set.get_areas_end());
+		// new_pcb.heap_pos = VirtAddr::from(pcb.memory_set.get_areas_end());
+		new_pcb.heap_pos = pcb.heap_pos;
 		// new_pcb.heap_pos.0 += PAGE_SIZE;
 		new_pcb.trapframe_ppn = new_pcb
 			.memory_set
@@ -114,26 +119,46 @@ impl Thread{
 				.token(),
 			buf,
 		);
+		let (dir,n)= self.get_abs_path(path);
+		let path=format!("{}{}",dir,n);
 		drop(pcb);
-		extern "C" {
-			fn _app_num();
-		}
-		let num = (_app_num as usize as *const usize).read_volatile();
-		let range = ((0..num).find(|&i| APP_NAMES[i] == path).map(get_location));
-		if (range == None) {
-			println!("{} : not found.", path);
+
+		if let Some(inode)=global_dentry_cache.get(&path){
+			let mut data=inode.lock();
+			let data=data.file_data();
+			return match ElfFile::new(&data[..]){
+				Ok(elf_file)=> self.exec_from_elf(&elf_file, argv),
+				Err(e)=> {
+					println!("[execve] {} : exec error.", path);
+					self.sys_exit(-1);
+					-1
+				},
+			}
+		}else{
+			println!("[execve] {} : not found.", path);
 			self.sys_exit(-1);
-			return 1;
+			return -1;
 		}
 
-		let (start, end) = range.unwrap();
+		// extern "C" {
+		// 	fn _app_num();
+		// }
+		// let num = (_app_num as usize as *const usize).read_volatile();
+		// let range = ((0..num).find(|&i| APP_NAMES[i] == path).map(get_location));
+		// if (range == None) {
+		// 	println!("[execve] {} : not found.", path);
+		// 	self.sys_exit(-1);
+		// 	return -1;
+		// }
 
-		let elf_file: Result<ElfFile, &str> =
-			ElfFile::new(slice::from_raw_parts(start as *const u8, end - start));
-		match elf_file {
-			Ok(elf) => self.exec_from_elf(&elf, argv),
-			Err(e) => 1,
-		}
+		// let (start, end) = range.unwrap();
+
+		// let elf_file: Result<ElfFile, &str> =
+		// 	ElfFile::new(slice::from_raw_parts(start as *const u8, end - start));
+		// match elf_file {
+		// 	Ok(elf) => self.exec_from_elf(&elf, argv),
+		// 	Err(e) => -1,
+		// }
 	}
 
 	pub async fn async_yield(){
@@ -143,15 +168,22 @@ impl Thread{
 	pub async unsafe fn sys_waitpid(&self, pid: isize, status:UserPtr<isize,Out>, options: usize) -> isize {
 		let mut pcb_lock=self.proc.inner.lock();
 		let mut pcb=pcb_lock.deref_mut();
+		
+		if PRINT_SYSCALL {println!("[waitpid] pid={} {} is waiting.",pid,pcb.pid);}
 		let nowpid = pcb.pid;
+		if pcb.children.alive.len()+pcb.children.zombie.len() ==0 {
+			return -1;
+		}
 		if (pid == -1) {
 			loop {
 				let pid={
 					let mut children= &mut pcb.children.zombie;
 					self.proc.inner.force_unlock();
-					while children.is_empty() {
-						Thread::async_yield().await;
-					}
+						
+						while children.is_empty() {
+							Thread::async_yield().await;
+						}
+
 					let mut pcb_lock = self.proc.inner.lock();
 					let (pid,process) = children.first_key_value().unwrap();
 					if (status.as_usize() as usize != 0) {

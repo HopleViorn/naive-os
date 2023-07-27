@@ -28,6 +28,9 @@ const SYSCALL_READ: usize = 63;
 const SYSCALL_WRITE: usize = 64;
 const SYSCALL_READV: usize = 65;
 const SYSCALL_WRITEV: usize = 66;
+const SYSCALL_SENDFILE: usize =71;
+const SYSCALL_PPOLL: usize =73;
+const SYSCALL_FSTATAT: usize =79;
 const SYSCALL_FSTAT: usize = 80;
 const SYSCALL_EXIT: usize = 93;
 const SYSCALL_EXIT_GROUP: usize = 94;
@@ -77,7 +80,7 @@ use crate::{
         page_table::{translate_str, PageTable},
         VirtAddr,
     },
-    task::{PCB, proc, Thread}, trap::TrapFrame,
+    task::{PCB, proc, Thread}, trap::TrapFrame, config::PRINT_SYSCALL,
 };
 
 #[repr(C)]
@@ -109,8 +112,7 @@ impl Thread{
 		}
 	}
 	pub async unsafe fn syscall(& self, syscall_id: usize, args: [usize; 6]) -> isize {
-		// println!("[syscall] id={}",syscall_id);
-		// self.stack_trace();
+		if PRINT_SYSCALL{println!("[syscall] id={}",syscall_id);}
 		let result = match syscall_id {
 			SYSCALL_WRITE => self.sys_write(args[0], args[1] as *const u8, args[2]),
 			SYSCALL_WRITEV => self.sys_writev(args[0], self.translate(args[1]) as *const usize, args[2]),
@@ -139,7 +141,7 @@ impl Thread{
 			).await,
 			SYSCALL_TIMES => self.sys_times(self.translate( args[0])),
 			SYSCALL_UMOUNT => self.sys_umount(),
-			SYSCALL_MOUNT => self.sys_mount(),
+			SYSCALL_MOUNT => Thread::sys_mount(),
 			SYSCALL_BRK => self.sys_brk(args[0]),
 			SYSCALL_OPENAT => self.sys_openat(
 				args[0] as isize,
@@ -161,6 +163,7 @@ impl Thread{
 				args[2] as usize,
 			),
 			SYSCALL_CHDIR => self.sys_chdir(args[0]),
+			SYSCALL_FSTATAT => self.sys_fstatat(args[0] as isize,args[1], args[2] as *mut u8,args[3]),
 			SYSCALL_FSTAT => self.sys_fstat(args[0] as isize, args[1] as *mut u8),
 			SYSCALL_UNLINKAT => self.sys_unlinkat(
 				args[0] as isize,
@@ -177,21 +180,22 @@ impl Thread{
 				args[4] as usize,
 				args[5] as usize,
 			),
-			SYSCALL_PIPE2 => {
-				self.sys_pipe2(self.translate(args[0]) as *mut u32)
-			}
+			SYSCALL_PIPE2 => self.sys_pipe2(self.translate(args[0]) as *mut u32),
 			SYSCALL_IOCTL=>0,
 			SYSCALL_FCNTL=> self.sys_fcntl(args[0],args[1],args[2]),
+			SYSCALL_SENDFILE=> self.sys_sendfile(args[0],args[1],args[2],args[3]),
+			SYSCALL_PPOLL=> 1,
 			SYSCALL_GETEUID => 0,
 			SYSCALL_GETUID => 0,
 			SYSCALL_GETGID => 0,
 			SYSCALL_GETEGID => 0,
+			SYSCALL_SIGACTION=>self.sys_sigaction(args[0]),//TODO
+			SYSCALL_SIGPROCMASK=>0,//TODO
+
 			SYSCALL_SET_ROBUST_LIST => 0,
 			SYSCALL_SET_TID_ADDRESS => 0, //TODO
-			SYSCALL_SIGPROCMASK=>0,//TODO
 			SYSCALL_GETTID =>0,//TODO
-			SYSCALL_TGKILL=>0,//TODO
-			SYSCALL_SIGACTION=>0,//TODO
+			// SYSCALL_TGKILL=>0,//TODO
 			SYSCALL_GETRLIMIT=>0,//TODO
 			SYSCALL_SETRLIMIT=>0,//TODO
 			SYSCALL_PRLIMIT=>0,//TODO

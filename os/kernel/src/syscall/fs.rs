@@ -6,13 +6,13 @@ use core::{
     ops::{Add, DerefMut},
     slice, panic,
 };
-use crate::fs::block_dev::virtio_block::{VirtIOBlock, Nuclear};
+use crate::{fs::block_dev::virtio_block::{VirtIOBlock, Nuclear}, config::PRINT_SYSCALL};
 use crate::{console::print, mm::{page_table::{copy_out, translate_str}, MemorySet, memory_set}, task::Thread};
 use alloc::{
     format,
     string::{String, ToString},
     sync::Arc,
-    vec::Vec, boxed::Box,
+    vec::Vec, boxed::Box, fmt::format,
 };
 use fat32::{volume::Volume, dir::{Dir, DirError}, directory_item::ItemType};
 use riscv::paging::Entries;
@@ -77,39 +77,43 @@ impl Thread{
 		// 返回字符串长度（包括空终止符）
 		(cwd_str.len() + 1) as isize
 	}
-	// int openat(int dirfd,const char *path, int flags)
-	pub fn sys_openat(&self,dirfd: isize, path: usize, flags: isize) -> isize {
-		let mut task=self.proc.inner.lock();
-		let path = &translate_str(task.memory_set.token(),path as *mut u8);
-		// println!("openat: dir fd: {}, path: {}, flags: {}", dirfd, path, flags);
+
+	pub fn get_abs_path(&self,path: String)-> (String,String){
 		let start_dir_path;
 		let rel_path;
 		if path.starts_with("/") {
 			start_dir_path = "/".to_string();
-			rel_path = path.strip_prefix("/").unwrap_or(path).to_string();
+			rel_path = path.strip_prefix("/").unwrap_or(&path).to_string();
 		} else {
-			start_dir_path = task.cwd.clone(); // TODO: consider dirfd
+			unsafe{self.proc.inner.force_unlock()};
+			start_dir_path = self.proc.inner.lock().cwd.clone(); // TODO: consider dirfd
 			rel_path = if path.starts_with("./") {
 				path.strip_prefix("./").unwrap().to_string()
 			} else {
 				path.to_string()
 			};
 		}
-
-
-		let abs_path = format!("{}{}", start_dir_path, rel_path);
-		println!("[openat] path={}",abs_path);
+		(start_dir_path, rel_path)
+	}
+	// int openat(int dirfd,const char *path, int flags)
+	pub fn sys_openat(&self,dirfd: isize, path: usize, flags: isize) -> isize {
+		let mut task=self.proc.inner.lock();
+		let path = translate_str(task.memory_set.token(),path as *mut u8);
+		// println!("openat: dir fd: {}, path: {}, flags: {}", dirfd, path, flags);
+		let (start_dir_path, rel_path)=self.get_abs_path(path);
+		let abs_path=format!("{}{}",start_dir_path,rel_path);
+		
 		let fd=match global_dentry_cache.get(&abs_path) {
 			Some(inode) => {
 				let open_file=Arc::new(Mutex::new(OpenFile::new_from_inode(
 					((flags as u32 ^ OpenFlags::RDONLY.bits())
-							| (flags as u32 ^ OpenFlags::RDWR.bits()))
-							!= 0,
+					| (flags as u32 ^ OpenFlags::RDWR.bits()))
+					!= 0,
 					((flags as u32 ^ OpenFlags::WRONLY.bits())
-							| (flags as u32 ^ OpenFlags::RDWR.bits()))
-							!= 0, inode,
-
+					| (flags as u32 ^ OpenFlags::RDWR.bits()))
+					!= 0, inode,
 				)));
+				if PRINT_SYSCALL {println!("[openat] path={},fd={}",abs_path,task.fd_manager.len());}
 				task.fd_manager.push(open_file) as isize
 			}
 			None => {
@@ -162,8 +166,38 @@ impl Thread{
 		fd as isize
 	}
 
+	pub fn sys_sendfile(&self,out_fd:usize, in_fd:usize, offset: usize, count:usize)->isize{
+		if PRINT_SYSCALL{println!("[sendfile] in_fd:{},out_fd:{},{},{}",in_fd,out_fd,offset,count);}
+		let pcb=self.proc.inner.lock();
+		let fd_manager=&pcb.fd_manager;
+		let mut inf=fd_manager.fd_array[in_fd].lock();
+		let mut of=fd_manager.fd_array[out_fd].lock();
+
+		let mut buf:Vec<u8>=Vec::new();
+		buf.resize(count, 0);
+
+		if offset==0{
+			let count_in=inf.inode.lock().read_at(inf.offset, &mut buf[..]).unwrap();
+			if PRINT_SYSCALL{println!("[send] len={},content=[{}]",count_in,core::str::from_utf8(&buf[..count_in]).unwrap().to_string());}
+			of.inode.lock().write_at(of.offset, &buf[..count_in]).unwrap();
+			inf.offset+=count_in;
+			of.offset+=count_in;
+			return count_in as isize;
+		}else{
+			unsafe{
+				let offset=self.translate(offset) as *mut usize;
+				let count_in=inf.inode.lock().read_at(*offset, &mut buf[..]).unwrap();
+				of.inode.lock().write_at(of.offset, &buf[..count_in]);
+				of.offset+=count_in;
+				*offset+=count_in;
+				return count_in as isize;
+			}
+		}
+	}
+
 	// int close(int fd)
 	pub fn sys_close(&self,fd: isize) -> isize {
+		if PRINT_SYSCALL{ println!("[close] fd:{}",fd);}
 		let fd_manager = &mut self.proc.inner.lock().fd_manager;
 		if fd as usize >= fd_manager.len() {
 			return -1;
@@ -201,10 +235,10 @@ impl Thread{
 			unsafe{
 				let buf=*iov.add(i*2) as *const u8;
 				let size=*iov.add(i*2+1);
-				self.sys_write(fd, buf, size);
+				sum+=self.sys_write(fd, buf, size);
 			}
 		}
-		0
+		sum
 	}
 
 	pub fn sys_umount(&self) -> isize {
@@ -212,65 +246,75 @@ impl Thread{
 	}
 
 	fn full_search_mount(dir:Dir<'_,Nuclear>, mut path:String){
+		let mut lfn_name=String::new();
 		for item in dir.iter(){
 			match(item.item_type){
 				ItemType::LFN=>{
 					let (name,len)=item.get_lfn().unwrap();
 					let name=core::str::from_utf8(&name).unwrap().to_string();
-					let file=dir.open_file(&name[..len]);
+					lfn_name=format!("{}{}",&name[..len],lfn_name);
+					drop(name);
+					let file=dir.open_file(&lfn_name);
+					let mut file_path=path.clone();
+					file_path.push_str(&lfn_name);
 					if let Ok(file)=file{
-						// println!("file size:{}",file.length());
-						let mut file_path=path.clone();
-						file_path.push_str(&name[..len]);
 						println!("[mount] find file {}",file_path);
+						// println!("file size:{}",file.length());
 						// println!("path:{},file_path:{}",path,file_path);
-
+						
 						let inode = Arc::new(Mutex::new(RegFileINode::new(
 							path.clone(),
-							name.clone(),
+							lfn_name.clone(),
 							OpenFlags::CREATE,
 							true,
 							true,
 						)));
-
+						
 						{
 							let inode_content=&mut inode.lock().file;
 							inode_content.resize(file.length(), 0);
 							if file.length()>0 {
 								file.read(inode_content.as_mut_slice());
+								// if file.length()<500{
+								// println!("<{}>",core::str::from_utf8(inode_content.as_slice()).unwrap().to_string());
+								// }
 							}else{
-								// println!("empty file.");
+								println!("empty file.");
 							}
 						}
 						global_dentry_cache.insert(&file_path, inode);
-
+						
 						// let buf=inode_content;
 						// let mut nxx=0;
 						// let mut tt=0;
 						// for c in buf{
-						// 	print!("{:02x}",c);
-						// 	nxx+=1;
-						// 	if nxx==16{
-						// 		nxx=0;
-						// 		println!("");
-						// 	}
-						// 	tt+=1;
-						// 	if(tt==16*16){
-						// 		break;
-						// 	}
-						// }	
-					}else{
-						let new_dir=dir.cd(&name[..len]);
-						if let Ok(new_dir)=new_dir{
-							let mut new_path=path.clone();
-							new_path.push_str(&name);
-							new_path.push('/');
-							Thread::full_search_mount(new_dir,new_path);
-						}else{
-							panic!("Mount Exception.");
-						}
-					}
-				}
+							// 	print!("{:02x}",c);
+							// 	nxx+=1;
+							// 	if nxx==16{
+								// 		nxx=0;
+								// 		println!("");
+								// 	}
+								// 	tt+=1;
+								// 	if(tt==16*16){
+									// 		break;
+									// 	}
+									// }	
+								lfn_name=String::new();
+								}else{
+									//DIRc
+									let new_dir=dir.cd(&lfn_name);
+									if let Ok(new_dir)=new_dir{
+										let mut new_path=path.clone();
+										new_path.push_str(&lfn_name);
+										new_path.push('/');
+										Thread::full_search_mount(new_dir,new_path);
+									}else{
+										continue;
+										// continue;
+										// panic!("Mount Exception.");
+									}
+								}
+							}
 				ItemType::Dir=>{
 				}
 				_=>{
@@ -279,8 +323,8 @@ impl Thread{
 			}
 		}
 	}
-
-	pub fn sys_mount(&self) -> isize {
+	
+	pub fn sys_mount() -> isize {
 		let volume=Volume::new(Nuclear{});
 		let root_dir=volume.root_dir();
 		Thread::full_search_mount(root_dir,"/".to_string());
@@ -302,22 +346,24 @@ impl Thread{
 		// println!("sys_read: fd: {}, buf: {:?}, len: {}", fd, buf, len);
 		let mut pcb_lock=self.proc.inner.lock();
 		let mut task = pcb_lock.deref_mut();
+		if PRINT_SYSCALL{ println!("[read] len={},fd={},pid={}",len,fd,task.pid);}
 		let memory_set=&task.memory_set;
 		let fd_manager = &task.fd_manager;
 		let open_file = &mut fd_manager.fd_array[fd].lock();
 		if !open_file.readable {
 			return -1;
 		}
-		// println!("[read] len={},fd={}",len,fd);
 		let buffers = translated_byte_buffer(memory_set.token(), buf as *mut u8, len);
 		let mut sum = 0;
 		for buffer in buffers {
-			for i in 0..10 {
+			for i in 0..1 {
 				let read_in = open_file
 					.inode
 					.lock()
 					.read_at(open_file.offset, buffer)
 					.unwrap();
+				// println!("|{}|",core::str::from_utf8(buffer).unwrap().to_string());
+				// println!("read_in:{}",read_in);
 				open_file.offset += read_in;
 				sum += read_in;
 				if read_in > 0 {
@@ -396,6 +442,7 @@ impl Thread{
 		fd_manager.dup(fd as usize) as isize
 	}
 	pub fn sys_dup3(&self, fd: isize, new_fd: isize, flags: isize) ->isize{
+		if PRINT_SYSCALL{ println!("[dup3] fd:{} new_fd:{}",fd,new_fd);}
 		let mut pcb=self.proc.inner.lock();
 		let mut fd_manager=&mut pcb.fd_manager;
 		fd_manager.dup3(fd as usize,new_fd as usize) as isize
@@ -551,6 +598,38 @@ impl Thread{
 
 	// SYSCALL_FSSTAT => sys_fstat(args[0] as isize, args[1] as *mut u8),
 
+	pub fn sys_fstatat(&self, dirfd: isize, path: usize, buf: *mut u8, flags:usize) -> isize {
+		let pcb=self.proc.inner.lock();
+		let path=translate_str(pcb.memory_set.token(), path as *mut u8);
+		if PRINT_SYSCALL{println!("[fstatat] dirfd:{}, path:{}",dirfd as isize,path);}
+		let (dir,rel)=self.get_abs_path(path);
+		let abs_path=format!("{}{}",dir,rel);
+		println!("[fstatat] abs_path:{}",abs_path);
+		let inode=global_dentry_cache.get(&abs_path);
+		if inode.is_none() {
+			return -1;
+		}
+		let inode=inode.unwrap();
+
+		let mut stat = Stat::new();
+
+		stat.st_size = inode.lock().file_size() as u32;
+		// println!("file_data:{:?}",fd_manager.fd_array[fd].open_file.inode.lock().file_data());
+		// println!("file_sss:{:?}",fd_manager.fd_array[fd].open_file.inode.lock().file_size());
+		// println!("file_nuckear:{:?}",stat.st_size);
+		unsafe {
+			copy_out(
+				pcb.memory_set.token(),
+				buf,
+				&mut stat as *mut Stat as *mut u8,
+				size_of::<Stat>(),
+			);
+			// *(buf as *mut Stat)=stat;
+			// println!("xxxxfile_nuckear:{:?}",(*(buf as *mut Stat)).st_size);
+		}
+		return 0;
+	}
+
 	pub fn sys_fstat(&self,fd: isize, buf: *mut u8) -> isize {
 		let fd = fd as usize;
 		let task = self.proc.inner.lock();
@@ -648,15 +727,16 @@ impl Thread{
 
 	pub fn sys_pipe2(&self, pipe: *mut u32) -> isize {
 		let fd_manager = &mut self.proc.inner.lock().fd_manager;
-
+		
 		let pipe_inode=Arc::new(Mutex::new(PipeINode::new_pipe()));
-
+		
 		let read_fd=fd_manager.push(
 			Arc::new(Mutex::new(OpenFile::new_from_inode(true,false,pipe_inode.clone())))
 		);
 		let write_fd = fd_manager.push(
 			Arc::new(Mutex::new(OpenFile::new_from_inode(false,true,pipe_inode.clone())))
 		);
+		if PRINT_SYSCALL {println!("[pipe] read:{},write:{}",read_fd,write_fd);}
 
 		unsafe {
 			*pipe = read_fd as u32;

@@ -1,6 +1,6 @@
 mod context;
 
-use crate::config::TRAMPOLINE;
+use crate::config::{TRAMPOLINE, PRINT_SEPC};
 use crate::mm::VirtAddr;
 use crate::mm::page_table::PageTable;
 use crate::task::{ProcessContext, PCB};
@@ -109,7 +109,7 @@ pub async unsafe fn user_loop(thread: Arc<Thread>){
 					.trapframe_ppn
 					.get_mut();
 					cx.sepc += 4;
-					// println!("sepc={:#x}",cx.sepc);
+					if PRINT_SEPC { println!("sepc={:#x}",cx.sepc);}
 					cx
 				};
 			let result = thread.syscall(

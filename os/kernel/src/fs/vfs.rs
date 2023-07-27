@@ -7,8 +7,8 @@ use core::pin::Pin;
 use core::result;
 use core::str;
 use spin::Mutex;
-
 /// Abstract file system object such as file or directory.
+
 pub trait INode: Any + Sync + Send {
     /// Read bytes at `offset` into `buf`, return the number of bytes read.
     fn read_at(&mut self, offset: usize, buf: &mut [u8]) -> Result<usize>;

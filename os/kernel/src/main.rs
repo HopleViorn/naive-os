@@ -234,6 +234,8 @@ pub fn rust_main(hart_id:usize) -> ! {
 		trap::init();
         loop{}
 	}
+    println!("Mount Success.");
+    println!("Entering Loop.");
 	//enter userloop
 	loop{
 		if let Some(runnable)=TASK_QUEUE.fetch(){
@@ -243,8 +245,6 @@ pub fn rust_main(hart_id:usize) -> ! {
 		}else{
 		}
 	}
-    println!("Mount Success.");
-    println!("Entering Loop.");
 
     println!("[main] unreachable part.");
     loop {}

@@ -226,11 +226,11 @@ pub fn rust_main(hart_id:usize) -> ! {
 		// unsafe {sie::set_stimer();}
 		Thread::sys_mount();
 		load_core_program();
+		KERNEL_SPACE.lock().activate();
 		smp_v!(true => INIT_START);
 	}else{
 		smp_v!(INIT_START => true);
 		println!("hart {} booting.",hart_id);
-		KERNEL_SPACE.lock().activate();
 		trap::init();
         loop{}
 	}
@@ -243,6 +243,8 @@ pub fn rust_main(hart_id:usize) -> ! {
 		}else{
 		}
 	}
+    println!("Mount Success.")
+    println!("Entering Loop.")
 
     println!("[main] unreachable part.");
     loop {}

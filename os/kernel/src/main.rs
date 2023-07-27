@@ -243,8 +243,8 @@ pub fn rust_main(hart_id:usize) -> ! {
 		}else{
 		}
 	}
-    println!("Mount Success.")
-    println!("Entering Loop.")
+    println!("Mount Success.");
+    println!("Entering Loop.");
 
     println!("[main] unreachable part.");
     loop {}

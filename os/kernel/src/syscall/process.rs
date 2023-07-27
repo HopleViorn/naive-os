@@ -18,7 +18,7 @@ use crate::{
     sync::UPSafeCell,
     task::{
          ProcessState, PCB, Thread, TASK_QUEUE, PID_ALLOCATOR, ProcessContext, Process, global_dentry_cache,
-    }, config::{PAGE_SIZE, TRAPFRAME, TRAMPOLINE, KERNEL_STACK_SIZE, PRINT_SYSCALL}, trap::{TrapFrame, user_loop},
+    }, config::{PAGE_SIZE, TRAPFRAME, TRAMPOLINE, KERNEL_STACK_SIZE, PRINT_SYSCALL}, trap::{TrapFrame, user_loop}, sbi::shutdown,
 };
 
 use super::raw_ptr::{UserPtr, Out};
@@ -48,7 +48,8 @@ impl Thread{
 			let mut x=nuclear.inner.lock();
 			x.children.turn_into_zombie(proc.pid);
 		}else{
-			println!("init exited.");
+			shutdown();
+			// println!("init exited.");
 		}
 		self.inner.exclusive_access().exit=true;
 		0

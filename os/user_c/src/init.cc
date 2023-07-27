@@ -27,7 +27,6 @@ signed main(){
 			printf("[init proc] get pid=%d exited.\n",x);
 		}
 		printf("[init proc] done.");
-		for(;;);
 	}
 	return 0;
 }

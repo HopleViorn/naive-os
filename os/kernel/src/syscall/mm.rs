@@ -1,4 +1,4 @@
-use core::{ops::DerefMut, panic};
+use core::{ops::DerefMut, panic, arch::asm};
 
 use alloc::{task, borrow::ToOwned, vec::Vec};
 use lazy_static::__Deref;
@@ -10,7 +10,7 @@ use crate::{
         memory_set::{MapArea, MapType},
         MapPermission, VirtAddr, VirtPageNum, page_table::PageTable,
     },
-    task::{Thread, FdManager},
+    task::{Thread, FdManager, OpenFile},
 };
 
 impl Thread{
@@ -62,7 +62,8 @@ impl Thread{
 		let mut pcb=pcb.deref_mut();
 		
 		let startva = if start == 0 {
-			pcb.heap_pos.ceil_align().0
+			pcb.mmap_pos.ceil_align().0
+			// pcb.heap_pos.ceil_align().0
 		} else {
 			start
 		};
@@ -79,6 +80,7 @@ impl Thread{
 				return startva as isize;
 			}
 			// let len=len.max(PAGE_SIZE);
+			println!("{:#x},{:#x},",startva,startva+len);
 			pcb.memory_set.push(
 				MapArea::new(
 					startva.into(),
@@ -87,7 +89,9 @@ impl Thread{
 					MapPermission::R | MapPermission::W | MapPermission::U,
 				),None
 			);
-			pcb.heap_pos=(startva+len).into();
+			// pcb.heap_pos=(startva+len).into();
+			pcb.mmap_pos=(startva+len).into();
+			// pcb.mmap_pos=(pcb.mmap_pos.ceil_align().0).into();
 		}else{
 			pcb.memory_set.push(
 				MapArea::new(
@@ -105,7 +109,9 @@ impl Thread{
 						.as_slice()
 					)
 				);
-				pcb.heap_pos=(startva+len).into();
+				pcb.mmap_pos=(startva+len).into();
+				// pcb.mmap_pos=(pcb.mmap_pos.ceil_align().0).into();
+				// pcb.heap_pos=(startva+len).into();
 			}
 			// println!("{:#x},{:#x}",startva,pcb.heap_pos.0);
 			return startva as isize;
@@ -134,6 +140,31 @@ impl Thread{
 				}
 			}
 		}
-
-	
+		pub fn sys_lseek(&self, fd: usize, offset: usize, whence :usize) -> isize{
+			if PRINT_SYSCALL{
+				println!("[lseek] fd:{} offset:{} whence:{}",fd,offset,whence);
+			}
+			let mut pcb=self.proc.inner.lock();
+			let fd_manager=&mut pcb.fd_manager;
+			let mut open_file=&fd_manager.fd_array[fd];
+			match whence{
+				//SEEK_SET
+				0 => {
+					open_file.lock().offset=offset;
+					offset as isize
+				},
+				//SEEK_CUR
+				1 =>{
+					open_file.lock().offset+=offset;
+					open_file.lock().offset as isize
+				},
+				//SEK_END
+				2=>{
+					let len=open_file.lock().inode.lock().file_size();
+					open_file.lock().offset=len+offset;
+					(len+offset) as isize
+				}
+				_=> -1
+			}
+		}
 }

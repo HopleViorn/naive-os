@@ -291,6 +291,94 @@ impl INode for TerminalINode {
     }
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct DentryInode {
+    pub readable: bool,
+    pub writable: bool,
+    pub dir: String,
+    pub name: String,
+    // Time related
+    pub atime: Timespec,
+    pub mtime: Timespec,
+    pub ctime: Timespec,
+    // Open mode
+    pub flags: OpenFlags,
+    // File data
+    pub file: Vec<u8>,
+}
+impl DentryInode {
+    pub fn new(
+        dir: String,
+        name: String,
+        flags: OpenFlags,
+        readable: bool,
+        writable: bool,
+    ) -> Self {
+        DentryInode {
+            readable,
+            writable,
+            dir,
+            name,
+            atime: Timespec::default(),
+            mtime: Timespec::default(),
+            ctime: Timespec::default(),
+            flags,
+            file: Vec::new(),
+        }
+    }
+	pub fn new_from_existed(
+        dir: String,
+        name: String,
+        flags: OpenFlags,
+        readable: bool,
+        writable: bool,
+		file: &[u8],
+    ) -> Self {
+        DentryInode {
+            readable,
+            writable,
+            dir,
+            name,
+            atime: Timespec::default(),
+            mtime: Timespec::default(),
+            ctime: Timespec::default(),
+            flags,
+            file: file.to_vec(),
+        }
+    }
+}
+
+impl INode for DentryInode {
+    fn read_at(&mut self, offset: usize, buf: &mut [u8]) -> Result<usize> {
+        return Err(FsError::InvalidParam);
+    }
+    fn write_at(&mut self, offset: usize, buf: &[u8]) -> Result<usize> {
+        return Err(FsError::InvalidParam);
+    }
+    fn poll(&self) -> Result<super::vfs::PollStatus> {
+        return Ok(PollStatus::default());
+    }
+    fn as_any_ref(&self) -> &dyn _core::any::Any {
+        return &1;
+    }
+    fn file_size(&self) -> usize {
+        return self.file.len();
+    }
+    fn file_data(&mut self) -> &mut Vec<u8> {
+        return &mut self.file;
+    }
+    fn unlink(&mut self, _name: &str) -> Result<()> {
+        self.name = "null".to_string();
+        return Ok(());
+    }
+    fn file_name(&self) -> String {
+        return self.name.clone();
+    }
+    fn is_pipe(&self) -> bool {
+        return false;
+    }
+}
+
 #[repr(C)]
 pub struct Dirent {
     pub d_ino: u64,        // 索引结点号

@@ -1,8 +1,8 @@
 #include "lib/unistd.h"
 #include "lib/stdio.c"
 
-char* argv[19]={"busybox","sh","max.sh"};
-// char* argv[19]={"busybox","sh","busybox_testcode.sh"};
+// char* argv[19]={"busybox","sh","max.sh"};
+char* argv[19]={"busybox","sh","busybox_testcode.sh"};
 // char* argv[19]={"busybox","sh","lua_testcode.sh"};
 
 signed main(){

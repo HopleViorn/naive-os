@@ -9,6 +9,7 @@ use crate::sync::UPSafeCell;
 use alloc::collections::BTreeMap;
 use alloc::sync::Arc;
 use alloc::vec::Vec;
+use riscv::addr::page;
 use spin::Mutex;
 use xmas_elf::program::SegmentData;
 use core::arch::asm;

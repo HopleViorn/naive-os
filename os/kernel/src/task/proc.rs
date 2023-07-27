@@ -4,7 +4,7 @@ use async_task::Runnable;
 use xmas_elf::ElfFile;
 
 use crate::{
-    config::{KERNEL_STACK_SIZE, PAGE_SIZE, TRAMPOLINE, TRAPFRAME, USER_STACK_SIZE},
+    config::{KERNEL_STACK_SIZE, PAGE_SIZE, TRAMPOLINE, TRAPFRAME, USER_STACK_SIZE, PRINT_SYSCALL},
     console::print,
     mm::{
         memory_set::{self, MapArea, MapPermission, KERNEL_SPACE},
@@ -24,6 +24,8 @@ pub unsafe fn exec_from_elf(&self ,elf_file: &ElfFile, argv: usize) -> isize {
 		.unwrap()
 		.ppn();
 	nowproc.heap_pos=heap_pos.into();
+	// nowproc.mmap_pos=(TRAPFRAME-USER_STACK_SIZE*2).into();
+	nowproc.mmap_pos=0x10000_0000.into();
 	nowproc.fd_manager.close_on_exec();
 
 	let mut user_stack_kernel: usize = PageTable::from_token(user_pagetable.token())
@@ -121,14 +123,15 @@ pub unsafe fn exec_from_elf(&self ,elf_file: &ElfFile, argv: usize) -> isize {
 	user_stack_kernel -= 8;
 	user_stack -= 8;
 	*(user_stack_kernel as *mut usize) = argc;
-	
-	print!("[execve] ");
-	for arg in debug_info{
-		print!("{} ",arg);
+	if PRINT_SYSCALL{
+		print!("[execve] ");
+		for arg in debug_info{
+			print!("{} ",arg);
+		}
+		println!("");
+		println!("         usert_stack:{:#x}",user_stack);
+		println!("         entry:{:#x}",entry);
 	}
-	println!("");
-	println!("         usert_stack:{:#x}",user_stack);
-	println!("         entry:{:#x}",entry);
 	
     *(nowproc.trapframe_ppn.get_mut() as *mut TrapFrame) = TrapFrame::app_init_context(
 		entry,

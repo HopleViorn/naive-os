@@ -216,7 +216,7 @@ impl FdManager {
         let len=self.fd_array.len();
         for i in 0..len{
             if self.fd_array[i].lock().status_flags==1{
-                println!("[close_on_exec] fd={}",i);
+                if PRINT_SYSCALL{println!("[close_on_exec] fd={}",i);}
                 self.fd_array[i]=Arc::new(Mutex::new(OpenFile::new()));
             }
         }
@@ -350,6 +350,7 @@ pub struct PCB {
     pub trapframe_ppn: PhysPageNum,
     pub memory_set: MemorySet,
     pub heap_pos: VirtAddr,
+    pub mmap_pos:VirtAddr,
     pub parent: Option<Arc<Process> >,
 	pub children: Children,
     pub exit_code: isize,
@@ -369,6 +370,7 @@ impl PCB {
             trapframe_ppn: 0.into(),
             memory_set: MemorySet::new_bare(),
             heap_pos: 0.into(),
+            mmap_pos: 0.into(),
             parent: None,
 			children:Children::new(),
             exit_code: 0,

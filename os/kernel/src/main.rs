@@ -9,7 +9,8 @@
 extern crate alloc;
 
 use alloc::collections::VecDeque;
-use alloc::string::ToString;
+use alloc::format;
+use alloc::string::{ToString, String};
 use async_task::Runnable;
 use lazy_static::{lazy_static, __Deref};
 use spin::Mutex;
@@ -88,6 +89,7 @@ fn crate_task_from_elf(userbin: &[u8]) {
     // let user_pagetable=&mut task.memory_set;
     let (user_pagetable,heap_pos, user_stack, entry) = MemorySet::from_elf(&elf_file);
     task.heap_pos=heap_pos.into();
+    task.mmap_pos=(0x10000_0000).into();
     println!("entry:{:#x}", entry);
     KERNEL_SPACE.lock().insert_framed_area(
         (TRAMPOLINE - KERNEL_STACK_SIZE * (pid + 1)).into(),
@@ -122,30 +124,40 @@ fn crate_task_from_elf(userbin: &[u8]) {
 	}
 }
 
+pub fn insert_file(path:&str,name:&str,content:&[u8]){
+    unsafe{
+		let inode=RegFileINode::new_from_existed(
+			path.to_string(),
+			name.to_string(),
+			OpenFlags::CREATE,
+			true,true,
+            content,
+		);
+		let inode=Arc::new(Mutex::new(inode));
+		global_dentry_cache.insert(format!("{}/{}",path,name).as_str(),inode);
+	}
+}
+
 
 #[no_mangle]
 fn load_core_program() {
-    extern "C" {
-        fn init_start();
-        fn init_end();
-		fn shell_start();
-        fn shell_end();
+    unsafe{
+        extern "C" {
+            fn init_start();
+            fn init_end();
+            fn shell_start();
+            fn shell_end();
+        }
+        insert_file("/core","shell",slice::from_raw_parts(shell_start as *const u8, shell_end as usize - shell_start as usize));
+        // insert_file("/core","init",slice::from_raw_parts(init_start as *const u8, init_end as usize - init_start as usize));
+
+        crate_task_from_elf(slice::from_raw_parts(
+            init_start as *const u8,
+            init_end as usize - init_start as usize,
+        ));
+
+        insert_file("/etc", "localtime", "0000".as_bytes());
     }
-	unsafe{
-		let inode=RegFileINode::new_from_existed(
-			"/core".to_string(),
-			"shell".to_string(),
-			OpenFlags::CREATE,
-			true,true,
-			slice::from_raw_parts(shell_start as *const u8, shell_end as usize - shell_start as usize)
-		);
-		let inode=Arc::new(Mutex::new(inode));
-		global_dentry_cache.insert("/core/shell",inode);
-		crate_task_from_elf(slice::from_raw_parts(
-			init_start as *const u8,
-			init_end as usize - init_start as usize,
-		));
-	}
 }
 
 // static LOCK: AtomicU8 = AtomicU8::new(0);

@@ -102,6 +102,7 @@ impl Thread{
 		// println!("openat: dir fd: {}, path: {}, flags: {}", dirfd, path, flags);
 		let (start_dir_path, rel_path)=self.get_abs_path(path);
 		let abs_path=format!("{}{}",start_dir_path,rel_path);
+		if PRINT_SYSCALL {println!("[openat] path={},fd={}",abs_path,task.fd_manager.len());}
 		
 		let fd=match global_dentry_cache.get(&abs_path) {
 			Some(inode) => {
@@ -113,7 +114,6 @@ impl Thread{
 					| (flags as u32 ^ OpenFlags::RDWR.bits()))
 					!= 0, inode,
 				)));
-				if PRINT_SYSCALL {println!("[openat] path={},fd={}",abs_path,task.fd_manager.len());}
 				task.fd_manager.push(open_file) as isize
 			}
 			None => {
@@ -240,6 +240,17 @@ impl Thread{
 		}
 		sum
 	}
+	pub async fn sys_readv(&self, fd: usize, iov: usize, len: usize) -> isize {
+		let mut sum=0;
+		for i in 0..len{
+			unsafe{
+				let buf=*(iov as *const usize).add(i*2);
+				let size=*(iov as *const usize).add(i*2+1);
+				sum+=self.sys_read(fd, buf, size).await;
+			}
+		}
+		sum
+	}
 
 	pub fn sys_umount(&self) -> isize {
 		0
@@ -342,7 +353,7 @@ impl Thread{
 		0
 	}
 
-	pub async unsafe fn sys_read(& self,fd: usize, buf: usize, len: usize) -> isize {
+	pub async unsafe fn sys_read(&self,fd: usize, buf: usize, len: usize) -> isize {
 		// println!("sys_read: fd: {}, buf: {:?}, len: {}", fd, buf, len);
 		let mut pcb_lock=self.proc.inner.lock();
 		let mut task = pcb_lock.deref_mut();
@@ -378,6 +389,7 @@ impl Thread{
 	}
 
 	pub fn sys_getdents64(&self, fd: usize, buf: *mut u8, len: usize) -> isize {
+		return 0;
 		let mut task = self.proc.inner.lock();
 		let fd_manager = &mut task.fd_manager;
 
@@ -601,10 +613,9 @@ impl Thread{
 	pub fn sys_fstatat(&self, dirfd: isize, path: usize, buf: *mut u8, flags:usize) -> isize {
 		let pcb=self.proc.inner.lock();
 		let path=translate_str(pcb.memory_set.token(), path as *mut u8);
-		if PRINT_SYSCALL{println!("[fstatat] dirfd:{}, path:{}",dirfd as isize,path);}
 		let (dir,rel)=self.get_abs_path(path);
 		let abs_path=format!("{}{}",dir,rel);
-		println!("[fstatat] abs_path:{}",abs_path);
+		if PRINT_SYSCALL{println!("[fstatat] dirfd:{}, abs_path:{}",dirfd as isize,abs_path);}
 		let inode=global_dentry_cache.get(&abs_path);
 		if inode.is_none() {
 			return -1;
@@ -640,12 +651,14 @@ impl Thread{
 		}
 
 		let mut stat = Stat::new();
-
+		
 		stat.st_size = fd_manager.fd_array[fd]
 			.lock()
 			.inode
 			.lock()
 			.file_size() as u32;
+		if PRINT_SYSCALL{println!("[fstat] path:{}",fd_manager.fd_array[fd].lock().inode.lock().file_name());}
+		
 		// println!("file_data:{:?}",fd_manager.fd_array[fd].open_file.inode.lock().file_data());
 		// println!("file_sss:{:?}",fd_manager.fd_array[fd].open_file.inode.lock().file_size());
 		// println!("file_nuckear:{:?}",stat.st_size);
@@ -684,6 +697,7 @@ impl Thread{
 	// SYSCALL_UNLINKAT => sys_unlinkat(args[0] as isize, &translate_str(get_token(), args[1] as *mut u8), args[2] as usize),
 
 	pub fn sys_unlinkat(&self, fd: isize, path: usize, flags: usize) -> isize {
+		return 0;
 		// println!("sys_unlinkat: fd: {}, path: {}, flags: {}", fd, path, flags);
 		let path={&translate_str(self.proc.inner.lock().memory_set.token(), path as *mut u8)};
 		let mut task = self.proc.inner.lock();

@@ -143,7 +143,6 @@ set_clear_csr!(
 
 /// Supervisor Previous Privilege Mode
 #[inline]
-#[cfg(riscv)]
 pub unsafe fn set_spp(spp: SPP) {
     match spp {
         SPP::Supervisor => _set(1 << 8),
@@ -153,7 +152,6 @@ pub unsafe fn set_spp(spp: SPP) {
 
 /// The status of the floating-point unit
 #[inline]
-#[cfg(riscv)]
 pub unsafe fn set_fs(fs: FS) {
     let mut value = _read();
     value.set_bits(13..15, fs as usize);

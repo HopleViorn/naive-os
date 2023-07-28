@@ -13,6 +13,7 @@ use alloc::format;
 use alloc::string::{ToString, String};
 use async_task::Runnable;
 use lazy_static::{lazy_static, __Deref};
+use riscv::register::sstatus::{self, FS};
 use spin::Mutex;
 use spin::mutex::SpinMutex;
 use sync::UPSafeCell;
@@ -204,6 +205,12 @@ macro_rules! smp_v {
     };
 }
 
+fn init_fp(){
+    unsafe{
+        sstatus::set_fs(FS::Clean);
+    }
+}
+
 
 #[no_mangle]
 pub fn rust_main(hart_id:usize) -> ! {
@@ -220,6 +227,7 @@ pub fn rust_main(hart_id:usize) -> ! {
 		println!("/_/     |_\\____/\\_____/______/");
 		println!("");
 		clear_bss();
+        init_fp();
 		mm::init();
 		trap::init();
 		KERNEL_SPACE.lock().activate();

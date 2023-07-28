@@ -352,17 +352,6 @@ impl Thread{
 		let root_dir=volume.root_dir();
 		Thread::full_search_mount(root_dir,"/".to_string());
 		return 0;
-		let nuclear = include_bytes!("../../../testbin/text.txt");
-		let inode = Arc::new(Mutex::new(RegFileINode::new(
-			"/".to_string(),
-			"text.txt".to_string(),
-			OpenFlags::CREATE,
-			true,
-			true,
-		)));
-		inode.lock().file = nuclear.to_vec();
-		global_dentry_cache.insert("/text.txt", inode);
-		0
 	}
 
 	pub async unsafe fn sys_read(&self,fd: usize, buf: usize, len: usize) -> isize {

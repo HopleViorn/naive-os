@@ -1,5 +1,5 @@
 
-use alloc::{task, vec::Vec, string::String};
+use alloc::{task, vec::Vec, string::{String, ToString}};
 use async_task::Runnable;
 use xmas_elf::ElfFile;
 
@@ -16,7 +16,7 @@ use super::{ProcessContext, ProcessState, __switch, PCB, TASK_QUEUE, Thread};
 
 impl Thread{
 
-pub unsafe fn exec_from_elf(&self ,elf_file: &ElfFile, argv: usize) -> isize {
+pub unsafe fn exec_from_elf(&self ,elf_file: &ElfFile, argvs: Vec<String>) -> isize {
 	let (user_pagetable,heap_pos, mut user_stack, entry) = MemorySet::from_elf(&elf_file);
     let mut nowproc = &mut self.proc.inner.lock();
 	nowproc.trapframe_ppn = user_pagetable
@@ -41,17 +41,9 @@ pub unsafe fn exec_from_elf(&self ,elf_file: &ElfFile, argv: usize) -> isize {
 		pos_env.push(0);
 
 		let mut debug_info:Vec<String> =Vec::new();
-
-		if (argv != 0) {
-			loop {
-            let argv_i_ptr = *(self.translate(argv + argc * 8) as *mut usize);
-            if (argv_i_ptr == 0) {
-				break;
-            }
-            let argv_i = argv_i_ptr as *mut u8;
-            let mut s = translate_str(nowproc.memory_set.token(), argv_i);
-            s.push(0 as char);
-            let src = s.as_bytes();
+		for mut s in argvs{
+			s.push(0 as char);
+			let src = s.as_bytes();
             user_stack_kernel -= s.len();
             user_stack -= s.len();
 			
@@ -59,10 +51,31 @@ pub unsafe fn exec_from_elf(&self ,elf_file: &ElfFile, argv: usize) -> isize {
             dst.copy_from_slice(src);
             pos.push(user_stack);
             argc += 1;
+			debug_info.push(s.to_string());
+		}
 
-			debug_info.push(s);
-        }
-    }
+
+		// if (argv != 0) {
+		// 	loop {
+        //     let argv_i_ptr = *(self.translate(argv + argc * 8) as *mut usize);
+        //     if (argv_i_ptr == 0) {
+		// 		break;
+        //     }
+        //     let argv_i = argv_i_ptr as *mut u8;
+        //     let mut s = translate_str(nowproc.memory_set.token(), argv_i);
+        //     s.push(0 as char);
+        //     let src = s.as_bytes();
+        //     user_stack_kernel -= s.len();
+        //     user_stack -= s.len();
+			
+        //     let dst = core::slice::from_raw_parts_mut((user_stack_kernel) as *mut u8, s.len());
+        //     dst.copy_from_slice(src);
+        //     pos.push(user_stack);
+        //     argc += 1;
+
+		// 	debug_info.push(s);
+        	// }
+    	// }s
 	pos.push(0);
 
 	//AT_NULL

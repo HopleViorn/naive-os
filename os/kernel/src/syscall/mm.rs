@@ -25,6 +25,9 @@ impl Thread{
 		if (end_ == _brk) {
 			0
 		} else if (end_ < _brk) {
+			if PRINT_SYSCALL{
+				println!("[brk] {:#x} to {:#x}",end_,_brk);
+			}
 			pcb.memory_set.push(
 				MapArea::new(
 					end_.into(),
@@ -33,6 +36,7 @@ impl Thread{
 					MapPermission::R | MapPermission::W | MapPermission::U,
 				),None);
 			pcb.heap_pos.0 = _brk;
+			
 			return _brk as isize;
 		} else {
 			panic!("shrink.");

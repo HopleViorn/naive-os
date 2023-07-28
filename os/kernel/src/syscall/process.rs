@@ -11,7 +11,7 @@ use alloc::{
     vec::Vec, fmt::format, format,
 };
 use lazy_static::lazy_static;
-use xmas_elf::ElfFile;
+use xmas_elf::{ElfFile, header::parse_header};
 
 use crate::{
     mm::{page_table::translate_str, translated_byte_buffer, MemorySet, VirtAddr, KERNEL_SPACE, MapPermission},
@@ -121,15 +121,35 @@ impl Thread{
 				.token(),
 			buf,
 		);
+
 		let (dir,n)= self.get_abs_path(path);
-		let path=format!("{}{}",dir,n);
-		drop(pcb);
+		let mut path=format!("{}{}",dir,n);
+
+		let mut argvs:Vec<String>=Vec::new();
+		let mut argc=0;
+
+		loop {
+			let argv_i_ptr = *(self.translate(argv + argc * 8) as *mut usize);
+			if (argv_i_ptr == 0) {
+				break;
+			}
+			let argv_i = argv_i_ptr as *mut u8;
+            let mut s = translate_str(pcb.memory_set.token(), argv_i);
+			argvs.push(s);
+			argc+=1;
+		}
+
+		if path.ends_with(".sh"){
+			argvs.insert(0, "sh".to_string());
+			argvs.insert(0, "busybox".to_string());
+			path="/busybox".to_string();
+		}
 
 		if let Some(inode)=global_dentry_cache.get(&path){
 			let mut data=inode.lock();
 			let data=data.file_data();
 			return match ElfFile::new(&data[..]){
-				Ok(elf_file)=> self.exec_from_elf(&elf_file, argv),
+				Ok(elf_file)=> self.exec_from_elf(&elf_file, argvs),
 				Err(e)=> {
 					println!("[execve] {} : exec error.", path);
 					self.sys_exit(-1);

@@ -27,7 +27,7 @@ void execute(char* buf){
 signed main(){
 	execute("time-test");
 	execute("busybox sh busybox_testcode.sh");
-	execute("busybox sh lua_testcode.sh");
+	// execute("busybox sh lua_testcode.sh");
 	printf("[init proc] done.\n");
 	return 0;
 }

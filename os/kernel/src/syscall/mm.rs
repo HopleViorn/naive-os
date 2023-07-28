@@ -36,6 +36,13 @@ impl Thread{
 					MapPermission::R | MapPermission::W | MapPermission::U,
 				),None);
 			pcb.heap_pos.0 = _brk;
+
+			// for area in &pcb.memory_set.areas{
+			// 	println!("[{:#x},{:#x}]",
+			// 		area.vpn_range.get_start().0*0x1000,
+			// 		&area.vpn_range.get_end().0*0x1000
+			// 	)
+			// }
 			
 			return _brk as isize;
 		} else {

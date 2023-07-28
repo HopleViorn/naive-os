@@ -135,7 +135,7 @@ impl Thread{
 			SYSCALL_CLOCK_GETTIME => self.sys_gettimeofday(args[1] as *mut usize),
 			SYSCALL_GETPID => self.sys_getpid(),
 			SYSCALL_GETPPID => self.sys_getppid(),
-			SYSCALL_CLONE => self.sys_clone(args[1]),
+			SYSCALL_CLONE => self.sys_clone(args[0],args[1],args[2],args[3],args[4]),
 			SYSCALL_EXECVE => self.sys_exec(args[0] as *mut u8, args[1] as usize),
 			SYSCALL_WAITPID => self.sys_waitpid(
 				args[0] as isize,
@@ -207,7 +207,7 @@ impl Thread{
 
 			SYSCALL_SET_ROBUST_LIST => 0,
 			SYSCALL_SET_TID_ADDRESS => 0, //TODO
-			SYSCALL_GETTID =>0,//TODO
+			SYSCALL_GETTID => self.sys_getpid(),//TODO
 			// SYSCALL_TGKILL=>0,//TODO
 			SYSCALL_GETRLIMIT=>0,//TODO
 			SYSCALL_SETRLIMIT=>0,//TODO

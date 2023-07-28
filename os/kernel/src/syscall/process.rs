@@ -11,6 +11,7 @@ use alloc::{
     vec::Vec, fmt::format, format,
 };
 use lazy_static::lazy_static;
+use riscv::register::fcsr::Flag;
 use xmas_elf::{ElfFile, header::parse_header};
 
 use crate::{
@@ -36,6 +37,47 @@ impl Future for YieldFuture {
         cx.waker().wake_by_ref();
         Poll::Pending
     }
+}
+bitflags! {
+	/// 用于 sys_clone 的选项
+	pub struct CloneFlags: u32 {
+		/// .
+		const CLONE_NEWTIME = 1 << 7;
+		/// 共享地址空间
+		const CLONE_VM = 1 << 8;
+		/// 共享文件系统新信息
+		const CLONE_FS = 1 << 9;
+		/// 共享文件描述符(fd)表
+		const CLONE_FILES = 1 << 10;
+		/// 共享信号处理函数
+		const CLONE_SIGHAND = 1 << 11;
+		/// 创建指向子任务的fd，用于 sys_pidfd_open
+		const CLONE_PIDFD = 1 << 12;
+		/// 用于 sys_ptrace
+		const CLONE_PTRACE = 1 << 13;
+		/// 指定父任务创建后立即阻塞，直到子任务退出才继续
+		const CLONE_VFORK = 1 << 14;
+		/// 指定子任务的 ppid 为当前任务的 ppid，相当于创建“兄弟”而不是“子女”
+		const CLONE_PARENT = 1 << 15;
+		/// 作为一个“线程”被创建。具体来说，它同 CLONE_PARENT 一样设置 ppid，且不可被 wait
+		const CLONE_THREAD = 1 << 16;
+		/// 子任务使用新的命名空间。目前还未用到
+		const CLONE_NEWNS = 1 << 17;
+		/// 子任务共享同一组信号量。用于 sys_semop
+		const CLONE_SYSVSEM = 1 << 18;
+		/// 要求设置 tls
+		const CLONE_SETTLS = 1 << 19;
+		/// 要求在父任务的一个地址写入子任务的 tid
+		const CLONE_PARENT_SETTID = 1 << 20;
+		/// 要求将子任务的一个地址清零。这个地址会被记录下来，当子任务退出时会触发此处的 futex
+		const CLONE_CHILD_CLEARTID = 1 << 21;
+		/// 历史遗留的 flag，现在按 linux 要求应忽略
+		const CLONE_DETACHED = 1 << 22;
+		/// 与 sys_ptrace 相关，目前未用到
+		const CLONE_UNTRACED = 1 << 23;
+		/// 要求在子任务的一个地址写入子任务的 tid
+		const CLONE_CHILD_SETTID = 1 << 24;
+	}
 }
 
 impl Thread{
@@ -64,12 +106,15 @@ impl Thread{
 	pub unsafe fn sys_getppid(&self) -> isize {
 		self.proc.inner.lock().parent.as_ref().unwrap().pid as isize
 	}
+	
 
-	pub unsafe fn sys_clone(&self, stack: usize) -> isize {
+	pub unsafe fn sys_clone(&self,flags:usize,stack: usize,ptid:usize, tls:usize, ctid:usize) -> isize {
+		if PRINT_SYSCALL {println!("[clone] flags:{} stack:{:#x},ptid:{:#x},tls:{}",flags,stack,ptid,tls);}
 		let mut pcb = self.proc.inner.lock();
 		let mut pcb =pcb.deref_mut();
 		let pid=pcb.pid;
 		let new_pid= PID_ALLOCATOR.alloc_pid();
+		let flags=CloneFlags::from_bits(flags as u32 & (!0x3f)).unwrap();
 		if PRINT_SYSCALL {println!("[clone] pid:{} new_pid:{}",pid,new_pid);}
 
 		let mut new_pcb=PCB::new();
@@ -88,9 +133,11 @@ impl Thread{
 			.translate(VirtAddr::from(TRAPFRAME).into())
 			.unwrap()
 			.ppn();
-		*(new_pcb.trapframe_ppn.get_mut() as *mut TrapFrame) = *(pcb.trapframe_ppn.get_mut() as *mut TrapFrame);
-		(*(new_pcb.trapframe_ppn.get_mut() as *mut TrapFrame)).x[10] = 0;
-		(*(new_pcb.trapframe_ppn.get_mut() as *mut TrapFrame)).kernel_sp =
+		let mut new_trapframe=(new_pcb.trapframe_ppn.get_mut() as *mut TrapFrame);
+		*new_trapframe = *(pcb.trapframe_ppn.get_mut() as *mut TrapFrame);
+		(*new_trapframe).x[10] = 0;
+
+		(*new_trapframe).kernel_sp =
 			TRAMPOLINE - KERNEL_STACK_SIZE * new_pid;
 		KERNEL_SPACE.lock().insert_framed_area(
 			(TRAMPOLINE - KERNEL_STACK_SIZE * (new_pid + 1)).into(),
@@ -98,7 +145,10 @@ impl Thread{
 			MapPermission::R | MapPermission::W,
 		);
 		if (stack != 0) {
-			(*(new_pcb.trapframe_ppn.get_mut() as *mut TrapFrame)).x[2] = stack;
+			(*new_trapframe).x[2] = stack;
+		}
+		if flags.contains(CloneFlags::CLONE_SETTLS){
+			(*new_trapframe).x[4]=tls;
 		}
 		
 		new_pcb.context = pcb.context;

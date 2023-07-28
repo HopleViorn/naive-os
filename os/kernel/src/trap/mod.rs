@@ -1,6 +1,7 @@
 mod context;
 
 use crate::config::{TRAMPOLINE, PRINT_SEPC, PRINT_SYSCALL};
+use crate::console::print;
 use crate::mm::VirtAddr;
 use crate::mm::page_table::PageTable;
 use crate::task::{ProcessContext, PCB};
@@ -152,6 +153,14 @@ pub async unsafe fn user_loop(thread: Arc<Thread>){
 					}
 					_ => {}
 				}
+				// for area in &pcb.memory_set.areas{
+				// 	println!("[{:#x},{:#x}]",
+				// 		area.vpn_range.get_start().0*0x1000,
+				// 		&area.vpn_range.get_end().0*0x1000
+				// 	)
+				// }
+				// println!("mmap_pos:{:#x}",&pcb.mmap_pos.0);
+				// println!("fa:{}",&pcb.parent.as_ref().unwrap().pid);
 				drop(pcb);
 				thread.sys_exit(0);
 				break;

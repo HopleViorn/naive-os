@@ -1,5 +1,3 @@
-use core::panic;
-
 use block_device::BlockDevice;
 use crate::bpb::BIOSParameterBlock;
 use crate::directory_item::DirectoryItem;

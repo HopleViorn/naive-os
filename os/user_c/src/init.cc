@@ -20,14 +20,14 @@ void execute(char* buf){
 		for(;;){
 			int status;
 			int x=waitpid(-1,&status,0);
-			if(x < 0) return ;
+			if(x <= 0) return ;
 		}
 	}
 }
 signed main(){
 	execute("time-test");
+	execute("busybox sh lua_testcode.sh");
 	execute("busybox sh busybox_testcode.sh");
-	// execute("busybox sh lua_testcode.sh");
 	printf("[init proc] done.\n");
 	return 0;
 }

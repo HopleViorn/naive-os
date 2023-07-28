@@ -26,10 +26,7 @@ extern "C" {
     fn __switch(current: *mut ProcessContext, next: *mut ProcessContext);
 }
 lazy_static! {
-    pub static ref global_dentry_cache: GlobalDentryCache = Default::default();
-    pub static ref global_inode_table: GlobalInodeTable = Default::default();
-    pub static ref global_open_file_table: GlobalOpenFileTable = Default::default();
-    pub static ref global_buffer_list: GlobalBufferList = Default::default();
+    pub static ref GLOBAL_DENTRY_CACHE: GlobalDentryCache = Default::default();
 }
 
 pub struct TaskQueue{

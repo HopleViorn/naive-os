@@ -26,7 +26,7 @@ use crate::{
     mm::translated_byte_buffer,
     sbi::console_getchar,
     task::{
-        global_buffer_list, global_dentry_cache, global_open_file_table,
+        GLOBAL_DENTRY_CACHE,
         FdManager, FileDescriptor, OpenFile,
     },
 };
@@ -104,7 +104,7 @@ impl Thread{
 		let abs_path=format!("{}{}",start_dir_path,rel_path);
 		if PRINT_SYSCALL {println!("[openat] path={},fd={}",abs_path,task.fd_manager.len());}
 		
-		let fd=match global_dentry_cache.get(&abs_path) {
+		let fd=match GLOBAL_DENTRY_CACHE.get(&abs_path) {
 			Some(inode) => {
 				let open_file=Arc::new(Mutex::new(OpenFile::new_from_inode(
 					((flags as u32 ^ OpenFlags::RDONLY.bits())
@@ -131,7 +131,7 @@ impl Thread{
 					flags: OpenFlags::new(flags as u32),
 					file: Vec::new(),
 				}));
-				global_dentry_cache.insert(&abs_path, new_inode.clone());
+				GLOBAL_DENTRY_CACHE.insert(&abs_path, new_inode.clone());
 				task.fd_manager.push(Arc::new(Mutex::new(OpenFile::new_from_inode(
 					((flags as u32 ^ OpenFlags::RDONLY.bits())
 					| (flags as u32 ^ OpenFlags::RDWR.bits()))
@@ -295,7 +295,7 @@ impl Thread{
 								println!("empty file.");
 							}
 						}
-						global_dentry_cache.insert(&file_path, inode);
+						GLOBAL_DENTRY_CACHE.insert(&file_path, inode);
 						
 						// let buf=inode_content;
 						// let mut nxx=0;
@@ -617,7 +617,7 @@ impl Thread{
 		let (dir,rel)=self.get_abs_path(path);
 		let abs_path=format!("{}{}",dir,rel);
 		if PRINT_SYSCALL{println!("[fstatat] dirfd:{}, abs_path:{}",dirfd as isize,abs_path);}
-		let inode=global_dentry_cache.get(&abs_path);
+		let inode=GLOBAL_DENTRY_CACHE.get(&abs_path);
 		if inode.is_none() {
 			return -1;
 		}
@@ -732,7 +732,7 @@ impl Thread{
 		// ); // TODO: fix incorrect start_dir_path
 		let abs_path = format!("{}{}", start_dir_path, rel_path);
 
-		global_dentry_cache.unlink(&abs_path);
+		GLOBAL_DENTRY_CACHE.unlink(&abs_path);
 		// println!("unlinkat: abs_path: {}", abs_path);
 
 		0

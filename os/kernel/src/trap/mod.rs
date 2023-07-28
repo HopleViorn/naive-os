@@ -1,6 +1,6 @@
 mod context;
 
-use crate::config::{TRAMPOLINE, PRINT_SEPC};
+use crate::config::{TRAMPOLINE, PRINT_SEPC, PRINT_SYSCALL};
 use crate::mm::VirtAddr;
 use crate::mm::page_table::PageTable;
 use crate::task::{ProcessContext, PCB};
@@ -60,7 +60,7 @@ pub fn set_user_trap() {
 pub async unsafe fn user_loop(thread: Arc<Thread>){
 	{
 		let mut pcb=thread.proc.inner.lock();
-		// println!("[New Thread] pid={},spec={:#x},sp={:#x}",pcb.pid,(*(pcb.trapframe_ppn.get_mut() as *mut TrapFrame)).sepc,(*(pcb.trapframe_ppn.get_mut() as *mut TrapFrame)).x[2]);
+		if PRINT_SYSCALL{ println!("[New Thread] pid={},spec={:#x},sp={:#x}",pcb.pid,(*(pcb.trapframe_ppn.get_mut() as *mut TrapFrame)).sepc,(*(pcb.trapframe_ppn.get_mut() as *mut TrapFrame)).x[2]);}
 	}
 	
 	loop{
@@ -135,7 +135,7 @@ pub async unsafe fn user_loop(thread: Arc<Thread>){
 				let cx: &mut TrapFrame = pcb
 					.trapframe_ppn
 					.get_mut();
-				println!("USER TRAP: stval={:#x},pc={:#x}", stval, cx.sepc);
+				println!("USER TRAP: stval={:#x},pc={:#x},pid={}", stval, cx.sepc, pcb.pid);
 				println!("[kernel] PageFault in application, kernel killed it.");
 				match scause.cause() {
 					Trap::Exception(Exception::StoreFault) => {
@@ -152,6 +152,9 @@ pub async unsafe fn user_loop(thread: Arc<Thread>){
 					}
 					_ => {}
 				}
+				drop(pcb);
+				thread.sys_exit(0);
+				break;
 				panic!("pg ft.");
 				// kill();
 			}

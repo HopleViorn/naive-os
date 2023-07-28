@@ -1,6 +1,6 @@
 //! App management syscalls
 
-use core::{clone, future::Future, pin::Pin, task::{Context, Poll}, ops::DerefMut};
+use core::{clone, future::Future, pin::Pin, task::{Context, Poll}, ops::DerefMut, option};
 
 use alloc::{
     boxed::Box,
@@ -17,7 +17,7 @@ use crate::{
     mm::{page_table::translate_str, translated_byte_buffer, MemorySet, VirtAddr, KERNEL_SPACE, MapPermission},
     sync::UPSafeCell,
     task::{
-         ProcessState, PCB, Thread, TASK_QUEUE, PID_ALLOCATOR, ProcessContext, Process, global_dentry_cache,
+         ProcessState, PCB, Thread, TASK_QUEUE, PID_ALLOCATOR, ProcessContext, Process, GLOBAL_DENTRY_CACHE,
     }, config::{PAGE_SIZE, TRAPFRAME, TRAMPOLINE, KERNEL_STACK_SIZE, PRINT_SYSCALL}, trap::{TrapFrame, user_loop}, sbi::shutdown,
 };
 
@@ -44,6 +44,9 @@ impl Thread{
 		let proc = &mut self.proc.inner.lock();
 		proc.state = ProcessState::ZOMBIE;
 		proc.exit_code = exit_code as isize;
+		if PRINT_SYSCALL{
+			println!("[exit] proc {} exited with code {}.",proc.pid,exit_code);
+		}
 		if let Some(nuclear)=proc.parent.as_ref(){
 			let mut x=nuclear.inner.lock();
 			x.children.turn_into_zombie(proc.pid);
@@ -145,7 +148,7 @@ impl Thread{
 			path="/busybox".to_string();
 		}
 
-		if let Some(inode)=global_dentry_cache.get(&path){
+		if let Some(inode)=GLOBAL_DENTRY_CACHE.get(&path){
 			let mut data=inode.lock();
 			let data=data.file_data();
 			return match ElfFile::new(&data[..]){
@@ -191,9 +194,12 @@ impl Thread{
 		let mut pcb_lock=self.proc.inner.lock();
 		let mut pcb=pcb_lock.deref_mut();
 		
-		if PRINT_SYSCALL {println!("[waitpid] pid={} {} is waiting.",pid,pcb.pid);}
+		if PRINT_SYSCALL {println!("[waitpid] {} is waiting {} ,flag={}.",pcb.pid,pid,options);}
 		let nowpid = pcb.pid;
 		if pcb.children.alive.len()+pcb.children.zombie.len() ==0 {
+			if options > 0{
+				return 0;
+			}
 			return -1;
 		}
 		if (pid == -1) {
@@ -203,6 +209,9 @@ impl Thread{
 					self.proc.inner.force_unlock();
 						
 						while children.is_empty() {
+							if options > 0{
+								return 0;
+							}
 							Thread::async_yield().await;
 						}
 
@@ -212,6 +221,7 @@ impl Thread{
 						let status=status.raw_ptr_mut();
 						*status = (process.inner.lock().exit_code << 8) | (0);
 					}
+					// println!("{} cleand {}",pcb.pid,*pid);
 					*pid
 				};
 				let mut children= &mut pcb.children.zombie;

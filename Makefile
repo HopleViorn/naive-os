@@ -74,11 +74,10 @@ sdebug: all
 
 gdb:
 	riscv64-unknown-elf-gdb \
-    -ex 'file /home/max/os/naive-os/os/testbin/time-test' \
+    -ex 'file /home/max/os/naive-os/debug/testbin/busybox_unstripped' \
     -ex 'set arch riscv:rv64' \
     -ex 'target remote localhost:12345'
 
+    # -ex 'file /home/max/os/naive-os/debug/lua' \
 	# -ex 'file /home/max/os/naive-os/sdcardmnt/time-test' \
-    # -ex 'file /home/max/os/naive-os/os/testbin/lua' \
-    # -ex 'file /home/max/os/naive-os/os/testbin/busybox_unstripped' \
 	# -ex 'file /home/max/os/naive-os/os/kernel/target/riscv64gc-unknown-none-elf/release/os' \

@@ -38,11 +38,11 @@ mod task;
 pub mod syscall;
 pub mod timer;
 pub mod trap;
-use crate::fs::block_dev::{block_device_test, init_block_dev};
+use crate::fs::block_dev::{init_block_dev};
 use crate::fs::file::{RegFileINode, OpenFlags};
 use crate::mm::memory_set::{MapArea, MapPermission, MapType};
 use crate::mm::VirtAddr;
-use crate::task::{TASK_QUEUE, Thread, PID_ALLOCATOR, Process, global_dentry_cache};
+use crate::task::{TASK_QUEUE, Thread, PID_ALLOCATOR, Process, GLOBAL_DENTRY_CACHE};
 use crate::trap::{user_loop, set_kernel_trap};
 use crate::{
     config::{KERNEL_STACK_SIZE, TRAMPOLINE, USER_STACK_SIZE},
@@ -135,7 +135,7 @@ pub fn insert_file(path:&str,name:&str,content:&[u8]){
             content,
 		);
 		let inode=Arc::new(Mutex::new(inode));
-		global_dentry_cache.insert(format!("{}/{}",path,name).as_str(),inode);
+		GLOBAL_DENTRY_CACHE.insert(format!("{}/{}",path,name).as_str(),inode);
 	}
 }
 

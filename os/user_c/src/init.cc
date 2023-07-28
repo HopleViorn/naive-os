@@ -10,12 +10,13 @@ signed main(){
 	if(fork()==0){
 		// execve("write", argv, 0);
 		if(fork()==0){
-			execve("time-test", argv, 0);
-			exit(0);
+			execve("time-test", 0, 0);
 		}else{
-			int status;
-			int x=waitpid(-1,&status,0);
-			if(x<0) exit(-1);
+			for(;;){
+				int status;
+				int x=waitpid(-1,&status,0);
+				if(x < 0) break;
+			}
 			execve("busybox", argv, 0);
 		}
 		// execve("busybox", argv, 0);

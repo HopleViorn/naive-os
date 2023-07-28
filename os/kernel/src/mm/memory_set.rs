@@ -197,12 +197,12 @@ impl MemorySet {
         }
         // map user stack with U flags
         let max_end_va: VirtAddr = max_end_vpn.into();
-        // let mut user_stack_bottom: usize = max_end_va.into();
+        let mut user_stack_bottom: usize = max_end_va.into();
         // // guard page
         // user_stack_bottom += PAGE_SIZE;
         // let user_stack_top = user_stack_bottom + USER_STACK_SIZE;
-        let user_stack_top=TRAPFRAME-USER_STACK_SIZE*16;
-        let user_stack_bottom=user_stack_top-USER_STACK_SIZE*17;
+        let user_stack_top=TRAPFRAME-USER_STACK_SIZE;
+        let user_stack_bottom=user_stack_top-USER_STACK_SIZE*2;
         memory_set.push(
             MapArea::new(
                 user_stack_bottom.into(),
@@ -237,6 +237,7 @@ impl MemorySet {
         (
             memory_set,
             max_end_va.into(),
+            // user_stack_top,
             user_stack_top,
             elf.header.pt2.entry_point() as usize,
         )

@@ -4,7 +4,7 @@ pub const KERNEL_HEAP_SIZE: usize = 0x400_0000;
 pub const MEMORY_END: usize = 0x88000000;
 pub const PAGE_SIZE: usize = 0x1000;
 pub const PAGE_SIZE_BITS: usize = 0xc;
-pub const PRINT_SYSCALL: bool = true;
+pub const PRINT_SYSCALL: bool = false;
 pub const PRINT_SEPC: bool = false;
 
 pub const TRAMPOLINE: usize = usize::MAX - PAGE_SIZE + 1;

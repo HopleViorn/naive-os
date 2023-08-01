@@ -26,17 +26,18 @@ void execute(char* buf){
 }
 signed main(){
 	execute("time-test");
-	// execute("busybox sh lua_testcode.sh");
-	execute("busybox sh ./test.sh date.lua");
-	execute("busybox sh ./test.sh file_io.lua");
-	execute("busybox sh ./test.sh max_min.lua");
-	execute("busybox sh ./test.sh random.lua");
-	execute("busybox sh ./test.sh remove.lua");
-	execute("busybox sh ./test.sh sin30.lua");
-	execute("busybox sh ./test.sh round_num.lua");
-	execute("busybox sh ./test.sh sort.lua");
-	execute("busybox sh ./test.sh strings.lua");
-	execute("busybox sh busybox_testcode.sh");
+	// execute("busybox sh libctest_testcode.sh");
+	execute("busybox sh unixbench_testcode.sh");
+	// execute("busybox sh ./test.sh date.lua");
+	// execute("busybox sh ./test.sh file_io.lua");
+	// execute("busybox sh ./test.sh max_min.lua");
+	// execute("busybox sh ./test.sh random.lua");
+	// execute("busybox sh ./test.sh remove.lua");
+	// execute("busybox sh ./test.sh sin30.lua");
+	// execute("busybox sh ./test.sh round_num.lua");
+	// execute("busybox sh ./test.sh sort.lua");
+	// execute("busybox sh ./test.sh strings.lua");
+	// execute("busybox sh busybox_testcode.sh");
 	printf("[init proc] done.\n");
 	return 0;
 }

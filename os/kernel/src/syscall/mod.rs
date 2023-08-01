@@ -212,7 +212,10 @@ impl Thread{
 			SYSCALL_GETRLIMIT=>0,//TODO
 			SYSCALL_SETRLIMIT=>0,//TODO
 			SYSCALL_PRLIMIT=>0,//TODO
-			_ => panic!("Unsupported syscall_id: {}", syscall_id),
+			_ => {
+				// panic!("Unsupported syscall_id: {}", syscall_id);
+				self.sys_exit(0)
+			}
 		};
 		result
 	}
